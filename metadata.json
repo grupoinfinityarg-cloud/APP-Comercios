@@ -1,0 +1,6 @@
+{
+  "name": "COMERCIOS 360",
+  "description": "Sistema profesional integral de gestión comercial para administrar puntos de venta, inventario, ventas, caja, clientes y compras.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
