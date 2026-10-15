@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   NavigationSectionId,
   Store as StoreType,
@@ -51,6 +51,35 @@ import { MarketingScreen } from './components/screens/MarketingScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 
 export default function App() {
+  // Theme State (Persisted in localStorage with system preference fallback)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('comercios360_theme');
+      if (saved) return saved === 'dark';
+      return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('comercios360_theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('comercios360_theme', 'light');
+      }
+    } catch {
+      // ignore in environments without localStorage
+    }
+  }, [isDarkMode]);
+
+  const handleToggleDarkMode = () => {
+    setIsDarkMode((prev) => !prev);
+  };
+
   // Authentication State (separated professional login screen with demo mode indicator)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<Employee>(DEMO_EMPLOYEES[0]);
@@ -107,7 +136,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] text-[#1C201E] flex flex-col font-sans antialiased selection:bg-[#F3D3C4] selection:text-[#7C321B]">
+    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#121614] text-[#111413] dark:text-[#F5F7F6] flex flex-col font-sans antialiased selection:bg-[#F3D3C4] selection:text-[#7C321B] transition-colors">
       <div className="flex flex-1">
         {/* Sidebar with 16 sections */}
         <Sidebar
@@ -132,10 +161,12 @@ export default function App() {
             onLogout={handleLogout}
             unreadAlertsCount={unreadAlertsCount}
             onNavigate={(sec) => setCurrentSection(sec)}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={handleToggleDarkMode}
           />
 
           {/* Central Workspace */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
             {currentSection === 'dashboard' && (
               <DashboardScreen
                 sales={sales}
@@ -220,7 +251,7 @@ export default function App() {
           </main>
 
           {/* Subdued Footer */}
-          <footer className="py-4 px-6 border-t border-[#E8E3DA] text-center text-xs text-[#8A908D] bg-[#FAF8F4]/80">
+          <footer className="py-4 px-6 border-t border-[#DCD6CC] dark:border-[#2E3531] text-center text-xs sm:text-sm text-[#4B524E] dark:text-[#CBD2CE] bg-[#FAF8F4]/90 dark:bg-[#161A18]/90">
             <p>
               COMERCIOS 360 &copy; 2026 • Sistema Profesional de Administración Comercial • Entorno de demostración
             </p>

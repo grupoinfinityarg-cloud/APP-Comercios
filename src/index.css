@@ -1,14 +1,16 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-serif: 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   
   --color-warm-bg: #FBF9F5;
   --color-warm-surface: #FFFFFF;
-  --color-warm-border: #E8E3DA;
-  --color-warm-muted: #6F7572;
-  --color-warm-charcoal: #1C201E;
+  --color-warm-border: #D1C9BC;
+  --color-warm-muted: #434946;
+  --color-warm-charcoal: #111413;
 
   --color-terracotta-50: #FDF7F4;
   --color-terracotta-100: #F9EAE3;
@@ -27,5 +29,133 @@
     font-family: var(--font-sans);
     color: var(--color-warm-charcoal);
     background-color: var(--color-warm-bg);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
+
+  /* High contrast base defaults in Dark Mode */
+  .dark body {
+    color: #F5F7F6;
+    background-color: #121614;
+  }
+
+  /* Accessible focus visible outlines */
+  *:focus-visible {
+    outline: 2px solid #C85A32;
+    outline-offset: 2px;
+  }
+}
+
+/* ======================================================== */
+/* ACCESSIBILITY & CONTRASTE SYSTEM-WIDE ENHANCEMENTS      */
+/* ======================================================== */
+
+/* 1. Minimum font size elevation: prevent unreadable 10px / 11px */
+.text-\[10px\],
+.text-\[11px\] {
+  font-size: 0.75rem !important; /* 12px min */
+  line-height: 1.1rem !important;
+}
+
+/* 2. Light Mode Contrast Fixes: ensure all text meets WCAG AA 4.5:1 */
+.text-\[\#8A908D\],
+.text-\[\#868C88\],
+.text-slate-400 {
+  color: #4E5551 !important; /* Contrast ratio > 5.2:1 against light bg */
+}
+
+.text-\[\#6F7572\],
+.text-\[\#595E5B\],
+.text-slate-500 {
+  color: #383F3C !important; /* Contrast ratio > 7.5:1 against light bg */
+}
+
+.text-\[\#2B302D\],
+.text-slate-700 {
+  color: #1C221F !important; /* Contrast ratio > 12:1 against light bg */
+}
+
+.border-\[\#E8E3DA\],
+.border-slate-200 {
+  border-color: #D1C9BC !important; /* Clear, sharp boundaries */
+}
+
+/* 3. Dark Mode Contrast Fixes: elevate cards, text, and inputs */
+.dark .bg-white {
+  background-color: #1E2421 !important;
+}
+
+.dark .bg-\[\#FAF8F4\],
+.dark .bg-slate-50 {
+  background-color: #161A18 !important;
+}
+
+.dark .bg-\[\#FAF7F2\],
+.dark .bg-slate-100 {
+  background-color: #222925 !important;
+}
+
+.dark .bg-\[\#FDF7F4\] {
+  background-color: #282F2C !important;
+}
+
+.dark .border-\[\#E8E3DA\],
+.dark .border-\[\#DCD6CC\],
+.dark .border-\[\#EFEAE0\],
+.dark .border-\[\#F3EFEA\],
+.dark .border-slate-200,
+.dark .border-slate-100 {
+  border-color: #343D38 !important;
+}
+
+.dark .text-\[\#1C201E\],
+.dark .text-\[\#111413\],
+.dark .text-slate-900 {
+  color: #F5F7F6 !important;
+}
+
+.dark .text-\[\#2B302D\],
+.dark .text-slate-800 {
+  color: #E5E9E6 !important;
+}
+
+.dark .text-\[\#595E5B\],
+.dark .text-\[\#6F7572\],
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: #CBD2CE !important;
+}
+
+.dark .text-\[\#8A908D\],
+.dark .text-\[\#868C88\],
+.dark .text-\[\#737A76\],
+.dark .text-slate-400 {
+  color: #A2A9A5 !important;
+}
+
+/* Dark mode inputs, selects, and textareas */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #181D1A !important;
+  color: #FFFFFF !important;
+  border-color: #3E4742 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #9EA7A2 !important;
+}
+
+/* Dark mode table headers and alternating hover */
+.dark thead {
+  background-color: #161A18 !important;
+  color: #CBD2CE !important;
+  border-color: #343D38 !important;
+}
+
+.dark tr.hover\:bg-\[\#FAF8F4\]:hover,
+.dark tr.hover\:bg-slate-50:hover,
+.dark tr.hover\:bg-slate-50\/80:hover {
+  background-color: #262D29 !important;
 }
