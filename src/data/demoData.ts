@@ -179,6 +179,22 @@ export const DEMO_SALES: Sale[] = [
     status: 'Completada',
     cashier: 'Santiago Pérez',
     storeName: 'Sucursal Central',
+    items: [
+      {
+        productId: 'prod-1',
+        productName: 'Café Tostado en Granos 500g',
+        quantity: 2,
+        unitPrice: 11500,
+        subtotal: 23000,
+      },
+      {
+        productId: 'prod-2',
+        productName: 'Leche Entera Clásica 1L',
+        quantity: 1,
+        unitPrice: 1600,
+        subtotal: 1600,
+      },
+    ],
   },
   {
     id: 'sal-102',
@@ -192,6 +208,22 @@ export const DEMO_SALES: Sale[] = [
     status: 'Completada',
     cashier: 'Santiago Pérez',
     storeName: 'Sucursal Central',
+    items: [
+      {
+        productId: 'prod-3',
+        productName: 'Yerba Mate Despalada Especial 1kg',
+        quantity: 1,
+        unitPrice: 4200,
+        subtotal: 4200,
+      },
+      {
+        productId: 'prod-4',
+        productName: 'Gaseosa Cola Clásica 1.5L',
+        quantity: 1,
+        unitPrice: 2400,
+        subtotal: 2400,
+      },
+    ],
   },
   {
     id: 'sal-103',
@@ -205,6 +237,29 @@ export const DEMO_SALES: Sale[] = [
     status: 'Completada',
     cashier: 'Valeria Rossi',
     storeName: 'Sucursal Central',
+    items: [
+      {
+        productId: 'prod-6',
+        productName: 'Queso Gouda Horma x 1kg',
+        quantity: 8,
+        unitPrice: 12900,
+        subtotal: 103200,
+      },
+      {
+        productId: 'prod-7',
+        productName: 'Dulce de Leche Colonial 400g',
+        quantity: 4,
+        unitPrice: 3200,
+        subtotal: 12800,
+      },
+      {
+        productId: 'prod-4',
+        productName: 'Gaseosa Cola Clásica 1.5L',
+        quantity: 2,
+        unitPrice: 1200,
+        subtotal: 2400,
+      },
+    ],
   },
   {
     id: 'sal-104',
@@ -218,6 +273,29 @@ export const DEMO_SALES: Sale[] = [
     status: 'Completada',
     cashier: 'Santiago Pérez',
     storeName: 'Sucursal Central',
+    items: [
+      {
+        productId: 'prod-3',
+        productName: 'Yerba Mate Despalada Especial 1kg',
+        quantity: 3,
+        unitPrice: 4200,
+        subtotal: 12600,
+      },
+      {
+        productId: 'prod-7',
+        productName: 'Dulce de Leche Colonial 400g',
+        quantity: 1,
+        unitPrice: 3200,
+        subtotal: 3200,
+      },
+      {
+        productId: 'prod-8',
+        productName: 'Galletitas de Avena y Miel 250g',
+        quantity: 1,
+        unitPrice: 3100,
+        subtotal: 3100,
+      },
+    ],
   },
   {
     id: 'sal-105',
@@ -231,6 +309,15 @@ export const DEMO_SALES: Sale[] = [
     status: 'Completada',
     cashier: 'Santiago Pérez',
     storeName: 'Sucursal Central',
+    items: [
+      {
+        productId: 'prod-1',
+        productName: 'Café Tostado en Granos 500g',
+        quantity: 1,
+        unitPrice: 11500,
+        subtotal: 11500,
+      },
+    ],
   },
   {
     id: 'sal-106',
@@ -244,6 +331,29 @@ export const DEMO_SALES: Sale[] = [
     status: 'Completada',
     cashier: 'Valeria Rossi',
     storeName: 'Sucursal Central',
+    items: [
+      {
+        productId: 'prod-1',
+        productName: 'Café Tostado en Granos 500g',
+        quantity: 2,
+        unitPrice: 11500,
+        subtotal: 23000,
+      },
+      {
+        productId: 'prod-6',
+        productName: 'Queso Gouda Horma x 1kg',
+        quantity: 1,
+        unitPrice: 8500,
+        subtotal: 8500,
+      },
+      {
+        productId: 'prod-8',
+        productName: 'Galletitas de Avena y Miel 250g',
+        quantity: 2,
+        unitPrice: 1500,
+        subtotal: 3000,
+      },
+    ],
   },
 ];
 

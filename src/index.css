@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+@theme {
+  --font-serif: 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  --color-warm-bg: #FBF9F5;
+  --color-warm-surface: #FFFFFF;
+  --color-warm-border: #E8E3DA;
+  --color-warm-muted: #6F7572;
+  --color-warm-charcoal: #1C201E;
+
+  --color-terracotta-50: #FDF7F4;
+  --color-terracotta-100: #F9EAE3;
+  --color-terracotta-200: #F3D3C4;
+  --color-terracotta-300: #E9B29B;
+  --color-terracotta-400: #DC8666;
+  --color-terracotta-500: #C85A32;
+  --color-terracotta-600: #B84C26;
+  --color-terracotta-700: #9B3D1D;
+  --color-terracotta-800: #7C321B;
+  --color-terracotta-900: #662D1A;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-warm-charcoal);
+    background-color: var(--color-warm-bg);
+  }
+}

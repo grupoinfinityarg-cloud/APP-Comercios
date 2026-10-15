@@ -107,7 +107,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased">
+    <div className="min-h-screen bg-[#FBF9F5] text-[#1C201E] flex flex-col font-sans antialiased selection:bg-[#F3D3C4] selection:text-[#7C321B]">
       <div className="flex flex-1">
         {/* Sidebar with 16 sections */}
         <Sidebar
@@ -220,7 +220,7 @@ export default function App() {
           </main>
 
           {/* Subdued Footer */}
-          <footer className="py-4 px-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 bg-white/50 dark:bg-slate-900/50">
+          <footer className="py-4 px-6 border-t border-[#E8E3DA] text-center text-xs text-[#8A908D] bg-[#FAF8F4]/80">
             <p>
               COMERCIOS 360 &copy; 2026 • Sistema Profesional de Administración Comercial • Entorno de demostración
             </p>
