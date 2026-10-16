@@ -19,6 +19,7 @@ import {
   X,
   Search,
   ShieldCheck,
+  History,
 } from 'lucide-react';
 import { NAVIGATION_ITEMS } from '../data/navigation';
 import { NavigationSectionId } from '../types';
@@ -47,6 +48,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bell,
   Megaphone,
   Settings,
+  ShieldCheck,
+  History,
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -100,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar sección (16 módulos)..."
+            placeholder="Buscar sección en el sistema..."
             className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-[#222825] border border-[#3A433E] rounded-xl text-white placeholder-[#A2A9A5] focus:outline-hidden focus:border-[#C85A32] focus:ring-1 focus:ring-[#C85A32] min-h-[40px]"
           />
           {searchTerm && (

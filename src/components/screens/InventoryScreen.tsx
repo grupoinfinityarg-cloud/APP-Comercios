@@ -31,7 +31,8 @@ import {
   Check,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
-import { Product } from '../../types';
+import { Product, Employee, Store } from '../../types';
+import { CreateAuditEventParams } from '../../utils/auditLogger';
 
 export interface StockMovement {
   id: string;
@@ -187,9 +188,17 @@ const PRODUCT_LOCATIONS: Record<string, string> = {
 
 interface InventoryScreenProps {
   products: Product[];
+  currentUser?: Employee;
+  activeStore?: Store;
+  onAuditLog?: (params: CreateAuditEventParams) => void;
 }
 
-export const InventoryScreen: React.FC<InventoryScreenProps> = ({ products: initialProducts }) => {
+export const InventoryScreen: React.FC<InventoryScreenProps> = ({
+  products: initialProducts,
+  currentUser,
+  activeStore,
+  onAuditLog,
+}) => {
   // Local state for products allowing live adjustments
   const [productList, setProductList] = useState<Product[]>(initialProducts);
   const [movements, setMovements] = useState<StockMovement[]>(INITIAL_MOVEMENTS);
@@ -383,6 +392,23 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({ products: init
     setMovements([newMovement, ...movements]);
     setActiveModal(null);
     showToast(`Stock de "${currentProd.name}" ajustado correctamente a ${resultingStock} ${currentProd.unit}`);
+
+    // Auditoría automática de ajuste de inventario
+    if (onAuditLog) {
+      onAuditLog({
+        module: 'Inventario y Stock',
+        action: `Ajuste de stock: ${currentProd.name}`,
+        category: 'stock',
+        status: 'exitoso',
+        details: `Ajuste (${movementTypeLabel}) de ${currentProd.name} (SKU: ${currentProd.sku}): stock anterior ${currentProd.stock} ${currentProd.unit}, stock nuevo ${resultingStock} ${currentProd.unit} (${qtyEffect >= 0 ? '+' : ''}${qtyEffect} ${currentProd.unit}). Motivo: "${adjustReason.trim()}".`,
+        entityId: currentProd.id,
+        previousValue: `Stock previo: ${currentProd.stock} ${currentProd.unit}`,
+        newValue: `Stock actual: ${resultingStock} ${currentProd.unit}`,
+        severity: resultingStock === 0 ? 'alta' : 'baja',
+        currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : { name: adjustOperator, role: 'Encargado' },
+        currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+      });
+    }
   };
 
   // Stepper quick adjustment for mobile cards
@@ -416,6 +442,23 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({ products: init
     };
     setMovements([newMovement, ...movements]);
     showToast(`${prod.name}: Stock actualizado a ${newStock} ${prod.unit}`);
+
+    // Auditoría automática de ajuste rápido
+    if (onAuditLog) {
+      onAuditLog({
+        module: 'Inventario y Stock',
+        action: `Ajuste rápido de stock: ${prod.name}`,
+        category: 'stock',
+        status: 'exitoso',
+        details: `Ajuste rápido en mostrador de ${prod.name} (SKU: ${prod.sku}): stock anterior ${prod.stock} ${prod.unit}, stock nuevo ${newStock} ${prod.unit} (${delta > 0 ? '+' : ''}${delta} ${prod.unit}).`,
+        entityId: prod.id,
+        previousValue: `Stock previo: ${prod.stock} ${prod.unit}`,
+        newValue: `Stock actual: ${newStock} ${prod.unit}`,
+        severity: newStock === 0 ? 'alta' : 'baja',
+        currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : null,
+        currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+      });
+    }
   };
 
   // Generate Suggested Reorder Confirmation

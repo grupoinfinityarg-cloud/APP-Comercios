@@ -23,13 +23,24 @@ import {
   Layers,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
-import { CashMovement } from '../../types';
+import { CashMovement, Employee, Store } from '../../types';
 import { DEMO_CASH_MOVEMENTS } from '../../data/demoData';
+import { CreateAuditEventParams } from '../../utils/auditLogger';
 
-export const CashRegisterScreen: React.FC = () => {
+interface CashRegisterScreenProps {
+  currentUser?: Employee;
+  activeStore?: Store;
+  onAuditLog?: (params: CreateAuditEventParams) => void;
+}
+
+export const CashRegisterScreen: React.FC<CashRegisterScreenProps> = ({
+  currentUser,
+  activeStore,
+  onAuditLog,
+}) => {
   // Shift state (turno abierto por defecto en modo demo)
   const [isShiftOpen, setIsShiftOpen] = useState(true);
-  const [shiftResponsible, setShiftResponsible] = useState('Santiago Pérez');
+  const [shiftResponsible, setShiftResponsible] = useState(currentUser?.name || 'Santiago Pérez');
   const [shiftOpeningTime, setShiftOpeningTime] = useState('08:00');
   const [shiftClosingTime, setShiftClosingTime] = useState<string | null>(null);
   const [initialCash, setInitialCash] = useState<number>(35000);
@@ -165,6 +176,22 @@ export const CashRegisterScreen: React.FC = () => {
       `${movementType === 'ingreso' ? 'Ingreso extra' : 'Retiro'} de ${formatCurrency(numAmount)}: "${trimmedConcept}"`,
       'success'
     );
+
+    // Auditoría automática de operación real en caja
+    if (onAuditLog) {
+      onAuditLog({
+        module: 'Caja y Fondos',
+        action: movementType === 'ingreso' ? 'Ingreso manual de efectivo' : 'Egreso manual de efectivo',
+        category: 'cash',
+        status: 'exitoso',
+        details: `${movementType === 'ingreso' ? 'Ingreso extra' : 'Retiro'} de efectivo a caja por $${numAmount.toLocaleString('es-AR')}. Concepto: "${trimmedConcept}".`,
+        entityId: newMovement.id,
+        newValue: `${movementType === 'ingreso' ? '+' : '-'}$${numAmount.toLocaleString('es-AR')}`,
+        severity: movementType === 'egreso' ? 'media' : 'baja',
+        currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : { name: shiftResponsible, role: 'Cajero' },
+        currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+      });
+    }
   };
 
   // Handler: Open Shift
@@ -201,6 +228,22 @@ export const CashRegisterScreen: React.FC = () => {
     setMovements((prev) => [openingMovement, ...prev]);
     setActiveModal(null);
     triggerToast('Turno de caja abierto', `Se registró la apertura con fondo inicial de ${formatCurrency(numAmount)}`, 'success');
+
+    // Auditoría automática de apertura de turno
+    if (onAuditLog) {
+      onAuditLog({
+        module: 'Caja y Fondos',
+        action: 'Apertura de turno de caja',
+        category: 'cash',
+        status: 'exitoso',
+        details: `Apertura de turno de caja con fondo inicial de ${formatCurrency(numAmount)}. Responsable: ${openShiftResponsible}.`,
+        entityId: openingMovement.id,
+        newValue: `Fondo inicial: ${formatCurrency(numAmount)}`,
+        severity: 'baja',
+        currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : { name: openShiftResponsible, role: 'Cajero' },
+        currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+      });
+    }
   };
 
   // Handler: Close Shift
@@ -239,6 +282,23 @@ export const CashRegisterScreen: React.FC = () => {
     setShiftSummaryData(summary);
     setActiveModal('receipt');
     triggerToast('Turno cerrado correctamente', `Turno finalizado a las ${timeString} hs.`, 'info');
+
+    // Auditoría automática de cierre de turno
+    if (onAuditLog) {
+      onAuditLog({
+        module: 'Caja y Fondos',
+        action: 'Cierre de turno de caja',
+        category: 'cash',
+        status: 'exitoso',
+        details: `Cierre de turno de caja. Efectivo en gaveta: ${formatCurrency(counted)} (Esperado: ${formatCurrency(expectedCashInDrawer)}, Diferencia: ${diff >= 0 ? '+' : ''}${formatCurrency(diff)}). Responsable: ${shiftResponsible}.`,
+        entityId: closingMovement.id,
+        previousValue: `Esperado: ${formatCurrency(expectedCashInDrawer)}`,
+        newValue: `Contado: ${formatCurrency(counted)} (Dif: ${diff >= 0 ? '+' : ''}${formatCurrency(diff)})`,
+        severity: Math.abs(diff) > 0 ? 'media' : 'baja',
+        currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : { name: shiftResponsible, role: 'Cajero' },
+        currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+      });
+    }
   };
 
   return (

@@ -14,7 +14,8 @@ export type NavigationSectionId =
   | 'employees'
   | 'alerts'
   | 'marketing'
-  | 'settings';
+  | 'settings'
+  | 'audit-log';
 
 export interface NavigationItem {
   id: NavigationSectionId;
@@ -227,4 +228,58 @@ export interface BusinessConfig {
   showQrCode: boolean;
   showCashierName: boolean;
   showCustomerData: boolean;
+}
+
+export type AuditLogCategory =
+  | 'auth'
+  | 'security'
+  | 'operation'
+  | 'sales'
+  | 'cash'
+  | 'stock'
+  | 'users'
+  | 'config';
+
+export type AuditLogStatus = 'exitoso' | 'advertencia' | 'bloqueado' | 'fallido';
+
+export type AuditLogModule =
+  | 'Autenticación'
+  | 'Productos'
+  | 'Ventas y POS'
+  | 'Caja y Fondos'
+  | 'Inventario y Stock'
+  | 'Clientes y Cuentas'
+  | 'Proveedores y Compras'
+  | 'Promociones'
+  | 'Reportes y Estadísticas'
+  | 'Usuarios y Permisos'
+  | 'Configuración'
+  | 'Seguridad y Sistema';
+
+export type AuditLogOrigin = 'demo' | 'manual_prueba' | 'sistema_local';
+
+export interface AuditLogEvent {
+  id: string;
+  timestamp: string; // ISO string for exact sort and date filtering: YYYY-MM-DDTHH:mm:ss
+  displayTime: string; // Friendly text e.g. 'Hoy, 10:55' or '16/10/2026, 10:55'
+  userName: string;
+  userRole: Employee['role'] | 'Sistema';
+  userId?: string;
+  storeName: string;
+  storeId?: string;
+  module: AuditLogModule;
+  action: string;
+  category: AuditLogCategory;
+  status: AuditLogStatus;
+  details: string;
+  origin?: AuditLogOrigin;
+  hash?: string;
+  previousHash?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  terminalCode?: string;
+  entityId?: string;
+  previousValue?: string;
+  newValue?: string;
+  severity?: 'baja' | 'media' | 'alta' | 'critica';
 }

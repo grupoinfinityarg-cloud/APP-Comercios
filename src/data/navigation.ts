@@ -121,4 +121,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     description: 'Datos fiscales de la empresa, impresoras y parámetros generales',
     category: 'sistema',
   },
+  {
+    id: 'audit-log',
+    label: '17. Auditoría y actividad',
+    iconName: 'ShieldCheck',
+    description: 'Historial de operaciones, accesos de usuarios y auditoría de seguridad',
+    category: 'sistema',
+  },
 ];

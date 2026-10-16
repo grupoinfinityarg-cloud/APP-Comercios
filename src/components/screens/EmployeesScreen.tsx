@@ -35,8 +35,8 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
-import { Employee, Store as StoreType } from '../../types';
-import { DEMO_EMPLOYEES, DEMO_STORES } from '../../data/demoData';
+import { Employee, Store as StoreType, NavigationSectionId, AuditLogEvent } from '../../types';
+import { DEMO_EMPLOYEES, DEMO_STORES, DEMO_AUDIT_LOGS } from '../../data/demoData';
 
 interface EmployeesScreenProps {
   employees: Employee[];
@@ -44,6 +44,8 @@ interface EmployeesScreenProps {
   currentUser?: Employee;
   onUpdateEmployees?: (employees: Employee[]) => void;
   onSwitchUser?: (user: Employee) => void;
+  onNavigate?: (section: NavigationSectionId) => void;
+  auditLogs?: AuditLogEvent[];
 }
 
 // System Roles definition with descriptions and security levels
@@ -398,6 +400,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
   currentUser,
   onUpdateEmployees,
   onSwitchUser,
+  onNavigate,
+  auditLogs,
 }) => {
   // Local staff state with session updates
   const [employees, setEmployees] = useState<Employee[]>(() => {
@@ -2027,7 +2031,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             </div>
 
             <div className="mt-5 space-y-3 max-h-[55vh] overflow-y-auto pr-1">
-              {INITIAL_AUDIT_LOG.map((event) => (
+              {(auditLogs && auditLogs.length > 0 ? auditLogs : DEMO_AUDIT_LOGS).map((event) => (
                 <div
                   key={event.id}
                   className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/50 flex items-start gap-3"
@@ -2036,14 +2040,14 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                     className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                       event.status === 'exitoso'
                         ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
-                        : event.status === 'bloqueado'
+                        : event.status === 'bloqueado' || event.status === 'fallido'
                         ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300'
                         : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
                     }`}
                   >
                     {event.status === 'exitoso' ? (
                       <CheckCircle2 className="w-4 h-4" />
-                    ) : event.status === 'bloqueado' ? (
+                    ) : event.status === 'bloqueado' || event.status === 'fallido' ? (
                       <ShieldAlert className="w-4 h-4" />
                     ) : (
                       <AlertTriangle className="w-4 h-4" />
@@ -2054,13 +2058,16 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                       <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
                         {event.action}
                       </span>
-                      <span className="text-[11px] font-mono text-slate-400">{event.timestamp}</span>
+                      <span className="text-[11px] font-mono text-slate-400">{event.displayTime || event.timestamp}</span>
                     </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                       <span className="font-semibold text-slate-700 dark:text-slate-300">
                         {event.userName}
                       </span>{' '}
                       ({event.userRole})
+                      {event.storeName && (
+                        <span className="text-slate-400 ml-1.5 font-medium">· {event.storeName}</span>
+                      )}
                     </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
                       {event.details}
@@ -2070,13 +2077,26 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               ))}
             </div>
 
-            <div className="flex justify-end pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+              {onNavigate ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAuditModal(false);
+                    onNavigate('audit-log');
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#C85A32] hover:bg-[#B84C26] text-white font-bold text-xs cursor-pointer shadow-xs transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Ver Auditoría Completa (Módulo 13)</span>
+                </button>
+              ) : <div />}
               <button
                 type="button"
                 onClick={() => setShowAuditModal(false)}
-                className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer"
               >
-                Cerrar Auditoría
+                Cerrar Ventana
               </button>
             </div>
           </div>

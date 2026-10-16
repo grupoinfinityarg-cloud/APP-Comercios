@@ -19,13 +19,24 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
-import { Product } from '../../types';
+import { Product, Employee, Store } from '../../types';
+import { CreateAuditEventParams } from '../../utils/auditLogger';
 
 interface ProductsScreenProps {
   products: Product[];
+  currentUser?: Employee;
+  activeStore?: Store;
+  onAuditLog?: (params: CreateAuditEventParams) => void;
+  onUpdateProducts?: (products: Product[]) => void;
 }
 
-export const ProductsScreen: React.FC<ProductsScreenProps> = ({ products: initialProducts }) => {
+export const ProductsScreen: React.FC<ProductsScreenProps> = ({
+  products: initialProducts,
+  currentUser,
+  activeStore,
+  onAuditLog,
+  onUpdateProducts,
+}) => {
   // Local state for product list (allows in-session creation and editing without altering global architecture)
   const [productList, setProductList] = useState<Product[]>(initialProducts);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,43 +133,144 @@ export const ProductsScreen: React.FC<ProductsScreenProps> = ({ products: initia
     }
 
     if (editingProduct) {
-      // Update existing
-      setProductList((prev) =>
-        prev.map((p) =>
-          p.id === editingProduct.id
-            ? {
-                ...p,
-                name: formData.name,
-                sku: formData.sku,
-                barcode: formData.barcode,
-                category: formData.category,
-                costPrice: Number(formData.costPrice),
-                salePrice: Number(formData.salePrice),
-                stock: Number(formData.stock),
-                minStock: Number(formData.minStock),
-                unit: formData.unit,
-                status: computedStatus,
-              }
-            : p
-        )
-      );
-    } else {
-      // Create new
-      const newProd: Product = {
-        id: `prod-${Date.now()}`,
-        name: formData.name,
-        sku: formData.sku,
-        barcode: formData.barcode,
+      // Detect which fields actually changed
+      const changes: string[] = [];
+      const trimmedName = formData.name.trim();
+      const numSalePrice = Number(formData.salePrice);
+      const numCostPrice = Number(formData.costPrice);
+      const numStock = Number(formData.stock);
+      const numMinStock = Number(formData.minStock);
+      const trimmedSku = formData.sku.trim();
+      const trimmedBarcode = formData.barcode.trim();
+
+      if (trimmedName !== editingProduct.name) {
+        changes.push(`Nombre: "${editingProduct.name}" -> "${trimmedName}"`);
+      }
+      if (numSalePrice !== editingProduct.salePrice) {
+        changes.push(
+          `Precio venta: $${editingProduct.salePrice.toLocaleString('es-AR')} -> $${numSalePrice.toLocaleString('es-AR')}`
+        );
+      }
+      if (numCostPrice !== editingProduct.costPrice) {
+        changes.push(
+          `Costo: $${editingProduct.costPrice.toLocaleString('es-AR')} -> $${numCostPrice.toLocaleString('es-AR')}`
+        );
+      }
+      if (formData.category !== editingProduct.category) {
+        changes.push(`Rubro: "${editingProduct.category}" -> "${formData.category}"`);
+      }
+      if (trimmedBarcode !== editingProduct.barcode) {
+        changes.push(`Código de barras: "${editingProduct.barcode}" -> "${trimmedBarcode}"`);
+      }
+      if (trimmedSku !== editingProduct.sku) {
+        changes.push(`SKU: "${editingProduct.sku}" -> "${trimmedSku}"`);
+      }
+      if (numStock !== editingProduct.stock) {
+        changes.push(`Stock físico: ${editingProduct.stock} -> ${numStock} ${formData.unit}`);
+      }
+      if (numMinStock !== editingProduct.minStock) {
+        changes.push(`Stock mínimo: ${editingProduct.minStock} -> ${numMinStock}`);
+      }
+      if (formData.unit !== editingProduct.unit) {
+        changes.push(`Unidad: "${editingProduct.unit}" -> "${formData.unit}"`);
+      }
+
+      const updatedProduct: Product = {
+        ...editingProduct,
+        name: trimmedName,
+        sku: trimmedSku,
+        barcode: trimmedBarcode,
         category: formData.category,
-        costPrice: Number(formData.costPrice),
-        salePrice: Number(formData.salePrice),
-        stock: Number(formData.stock),
-        minStock: Number(formData.minStock),
+        costPrice: numCostPrice,
+        salePrice: numSalePrice,
+        stock: numStock,
+        minStock: numMinStock,
         unit: formData.unit,
         status: computedStatus,
-        storeId: 'store-1',
       };
-      setProductList((prev) => [newProd, ...prev]);
+
+      // Update existing in state
+      const updatedList = productList.map((p) =>
+        p.id === editingProduct.id ? updatedProduct : p
+      );
+      setProductList(updatedList);
+      if (onUpdateProducts) {
+        onUpdateProducts(updatedList);
+      }
+
+      // Only record audit event if actual modifications were saved
+      if (changes.length > 0 && onAuditLog) {
+        let previousVal = '';
+        let newVal = '';
+        if (numSalePrice !== editingProduct.salePrice || numCostPrice !== editingProduct.costPrice) {
+          previousVal = `Venta: $${editingProduct.salePrice.toLocaleString('es-AR')} | Costo: $${editingProduct.costPrice.toLocaleString('es-AR')}`;
+          newVal = `Venta: $${numSalePrice.toLocaleString('es-AR')} | Costo: $${numCostPrice.toLocaleString('es-AR')}`;
+        } else if (trimmedName !== editingProduct.name) {
+          previousVal = `Nombre: ${editingProduct.name}`;
+          newVal = `Nombre: ${trimmedName}`;
+        } else {
+          previousVal = changes[0].split(' -> ')[0];
+          newVal = changes[0].split(' -> ')[1] || '';
+        }
+
+        onAuditLog({
+          module: 'Productos',
+          action: `Modificación de producto: ${trimmedName}`,
+          category: 'operation',
+          status: 'exitoso',
+          details: `Modificación en ficha de producto "${trimmedName}" (ID: ${editingProduct.id}): ${changes.join('; ')}.`,
+          entityId: editingProduct.id,
+          previousValue: previousVal,
+          newValue: newVal,
+          severity: 'baja',
+          currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : null,
+          currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+        });
+      }
+    } else {
+      // Create new
+      const trimmedName = formData.name.trim();
+      const numSalePrice = Number(formData.salePrice);
+      const numCostPrice = Number(formData.costPrice);
+      const numStock = Number(formData.stock);
+      const numMinStock = Number(formData.minStock);
+
+      const newProd: Product = {
+        id: `prod-${Date.now()}`,
+        name: trimmedName,
+        sku: formData.sku.trim(),
+        barcode: formData.barcode.trim(),
+        category: formData.category,
+        costPrice: numCostPrice,
+        salePrice: numSalePrice,
+        stock: numStock,
+        minStock: numMinStock,
+        unit: formData.unit,
+        status: computedStatus,
+        storeId: activeStore?.id || 'store-1',
+      };
+
+      const updatedList = [newProd, ...productList];
+      setProductList(updatedList);
+      if (onUpdateProducts) {
+        onUpdateProducts(updatedList);
+      }
+
+      // Record audit event for product creation
+      if (onAuditLog) {
+        onAuditLog({
+          module: 'Productos',
+          action: 'Alta de producto',
+          category: 'operation',
+          status: 'exitoso',
+          details: `Alta de nuevo producto en catálogo: "${trimmedName}" (SKU: ${newProd.sku}, Rubro: ${newProd.category}). Precio venta: $${numSalePrice.toLocaleString('es-AR')}, Costo: $${numCostPrice.toLocaleString('es-AR')}, Stock inicial: ${numStock} ${newProd.unit}.`,
+          entityId: newProd.id,
+          newValue: `Venta: $${numSalePrice.toLocaleString('es-AR')} | Costo: $${numCostPrice.toLocaleString('es-AR')}`,
+          severity: 'baja',
+          currentUser: currentUser ? { name: currentUser.name, role: currentUser.role, id: currentUser.id } : null,
+          currentStore: activeStore ? { name: activeStore.name, id: activeStore.id } : null,
+        });
+      }
     }
 
     setShowModal(false);

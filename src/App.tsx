@@ -16,6 +16,7 @@ import {
   Employee,
   SystemAlert,
   BusinessConfig,
+  AuditLogEvent,
 } from './types';
 import {
   DEMO_STORES,
@@ -28,7 +29,9 @@ import {
   DEMO_EMPLOYEES,
   DEMO_ALERTS,
   DEFAULT_BUSINESS_CONFIG,
+  DEMO_AUDIT_LOGS,
 } from './data/demoData';
+import { createAuditEvent, CreateAuditEventParams } from './utils/auditLogger';
 
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { Header } from './components/Header';
@@ -51,6 +54,7 @@ import { EmployeesScreen } from './components/screens/EmployeesScreen';
 import { AlertsScreen } from './components/screens/AlertsScreen';
 import { MarketingScreen } from './components/screens/MarketingScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
+import { AuditLogScreen } from './components/screens/AuditLogScreen';
 
 export default function App() {
   // Theme State (Persisted in localStorage with system preference fallback)
@@ -169,6 +173,63 @@ export default function App() {
   const [employees, setEmployees] = useState<Employee[]>(DEMO_EMPLOYEES);
   const [alerts, setAlerts] = useState<SystemAlert[]>(DEMO_ALERTS);
 
+  // Módulo 13: Audit Log State (Persisted in localStorage with DEMO_AUDIT_LOGS fallback)
+  const [auditLogs, setAuditLogs] = useState<AuditLogEvent[]>(() => {
+    try {
+      const saved = localStorage.getItem('comercios360_audit_logs');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return DEMO_AUDIT_LOGS;
+  });
+
+  const handleUpdateAuditLogs = (newLogs: AuditLogEvent[]) => {
+    setAuditLogs(newLogs);
+    try {
+      localStorage.setItem('comercios360_audit_logs', JSON.stringify(newLogs));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRecordAuditEvent = (params: CreateAuditEventParams) => {
+    try {
+      setAuditLogs((prevLogs) => {
+        const newEvent = createAuditEvent(
+          {
+            ...params,
+            currentUser:
+              params.currentUser !== undefined
+                ? params.currentUser
+                : currentUser
+                ? { name: currentUser.name, role: currentUser.role, id: currentUser.id }
+                : null,
+            currentStore:
+              params.currentStore !== undefined
+                ? params.currentStore
+                : activeStore
+                ? { name: activeStore.name, id: activeStore.id }
+                : null,
+          },
+          prevLogs
+        );
+
+        if (!newEvent) return prevLogs;
+
+        const updated = [newEvent, ...prevLogs];
+        try {
+          localStorage.setItem('comercios360_audit_logs', JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+        return updated;
+      });
+    } catch (err) {
+      console.warn('Error al registrar evento de auditoría:', err);
+    }
+  };
+
   const handleLogin = (user: Employee) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
@@ -185,6 +246,18 @@ export default function App() {
     setStores((prev) =>
       prev.map((s) => (s.id === activeStore.id ? { ...s, todaySales: s.todaySales + newSale.total } : s))
     );
+
+    // Registro automático de auditoría para la venta en POS completada
+    handleRecordAuditEvent({
+      module: 'Ventas y POS',
+      action: 'Venta registrada en POS',
+      category: 'sales',
+      status: 'exitoso',
+      details: `Venta completada por $${newSale.total.toLocaleString('es-AR')} abonada con ${newSale.paymentMethod}. Comprobante: ${newSale.ticketNumber}. Total de ítems: ${newSale.itemsCount}.`,
+      entityId: newSale.ticketNumber || newSale.id,
+      newValue: `Total: $${newSale.total.toLocaleString('es-AR')}`,
+      severity: 'baja',
+    });
   };
 
   const handleMarkAllAlertsAsRead = () => {
@@ -254,11 +327,22 @@ export default function App() {
             )}
 
             {currentSection === 'products' && (
-              <ProductsScreen products={products} />
+              <ProductsScreen
+                products={products}
+                currentUser={currentUser}
+                activeStore={activeStore}
+                onAuditLog={handleRecordAuditEvent}
+                onUpdateProducts={setProducts}
+              />
             )}
 
             {currentSection === 'inventory' && (
-              <InventoryScreen products={products} />
+              <InventoryScreen
+                products={products}
+                currentUser={currentUser}
+                activeStore={activeStore}
+                onAuditLog={handleRecordAuditEvent}
+              />
             )}
 
             {currentSection === 'sales' && (
@@ -271,7 +355,11 @@ export default function App() {
             )}
 
             {currentSection === 'cash-register' && (
-              <CashRegisterScreen />
+              <CashRegisterScreen
+                currentUser={currentUser}
+                activeStore={activeStore}
+                onAuditLog={handleRecordAuditEvent}
+              />
             )}
 
             {currentSection === 'customers' && (
@@ -305,6 +393,8 @@ export default function App() {
                 currentUser={currentUser}
                 onUpdateEmployees={setEmployees}
                 onSwitchUser={(user) => setCurrentUser(user)}
+                onNavigate={(sec) => setCurrentSection(sec)}
+                auditLogs={auditLogs}
               />
             )}
 
@@ -330,6 +420,17 @@ export default function App() {
                 employees={employees}
                 businessConfig={businessConfig}
                 onUpdateBusinessConfig={handleUpdateBusinessConfig}
+              />
+            )}
+
+            {currentSection === 'audit-log' && (
+              <AuditLogScreen
+                auditLogs={auditLogs}
+                onUpdateAuditLogs={handleUpdateAuditLogs}
+                currentUser={currentUser}
+                employees={employees}
+                stores={stores}
+                onNavigate={(sec) => setCurrentSection(sec)}
               />
             )}
           </main>
