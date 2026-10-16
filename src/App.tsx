@@ -15,6 +15,7 @@ import {
   Promotion,
   Employee,
   SystemAlert,
+  BusinessConfig,
 } from './types';
 import {
   DEMO_STORES,
@@ -26,6 +27,7 @@ import {
   DEMO_PROMOTIONS,
   DEMO_EMPLOYEES,
   DEMO_ALERTS,
+  DEFAULT_BUSINESS_CONFIG,
 } from './data/demoData';
 
 import { LoginScreen } from './components/Auth/LoginScreen';
@@ -88,9 +90,76 @@ export default function App() {
   const [currentSection, setCurrentSection] = useState<NavigationSectionId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Commerce Data State (Interactive memory for demo session)
-  const [stores, setStores] = useState<StoreType[]>(DEMO_STORES);
-  const [activeStore, setActiveStore] = useState<StoreType>(DEMO_STORES[0]);
+  // Commerce Data State (Interactive memory with localStorage persistence for demo sessions)
+  const [stores, setStores] = useState<StoreType[]>(() => {
+    try {
+      const saved = localStorage.getItem('comercios360_stores');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback to DEMO_STORES
+    }
+    return DEMO_STORES;
+  });
+
+  const [activeStore, setActiveStore] = useState<StoreType>(() => {
+    try {
+      const savedId = localStorage.getItem('comercios360_active_store_id');
+      if (savedId) {
+        const found = stores.find((s) => s.id === savedId);
+        if (found) return found;
+      }
+    } catch {
+      // fallback
+    }
+    return stores[0] || DEMO_STORES[0];
+  });
+
+  const [businessConfig, setBusinessConfig] = useState<BusinessConfig>(() => {
+    try {
+      const saved = localStorage.getItem('comercios360_config');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return DEFAULT_BUSINESS_CONFIG;
+  });
+
+  const handleUpdateStores = (updatedStores: StoreType[]) => {
+    setStores(updatedStores);
+    try {
+      localStorage.setItem('comercios360_stores', JSON.stringify(updatedStores));
+    } catch {
+      // ignore
+    }
+    const currentActiveInUpdated = updatedStores.find((s) => s.id === activeStore.id);
+    if (currentActiveInUpdated) {
+      setActiveStore(currentActiveInUpdated);
+    } else if (updatedStores.length > 0) {
+      setActiveStore(updatedStores[0]);
+    }
+  };
+
+  const handleSelectStore = (store: StoreType) => {
+    setActiveStore(store);
+    try {
+      localStorage.setItem('comercios360_active_store_id', store.id);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleUpdateBusinessConfig = (newConfig: BusinessConfig) => {
+    setBusinessConfig(newConfig);
+    try {
+      localStorage.setItem('comercios360_config', JSON.stringify(newConfig));
+    } catch {
+      // ignore
+    }
+  };
+
   const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
   const [sales, setSales] = useState<Sale[]>(DEMO_SALES);
   const [customers, setCustomers] = useState<Customer[]>(DEMO_CUSTOMERS);
@@ -156,7 +225,7 @@ export default function App() {
             onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
             stores={stores}
             activeStore={activeStore}
-            onSelectStore={setActiveStore}
+            onSelectStore={handleSelectStore}
             currentUser={currentUser}
             onLogout={handleLogout}
             unreadAlertsCount={unreadAlertsCount}
@@ -222,15 +291,21 @@ export default function App() {
             )}
 
             {currentSection === 'promotions' && (
-              <PromotionsScreen promotions={promotions} />
+              <PromotionsScreen promotions={promotions} products={products} />
             )}
 
             {currentSection === 'reports' && (
-              <ReportsScreen sales={sales} products={products} />
+              <ReportsScreen sales={sales} products={products} purchases={purchases} />
             )}
 
             {currentSection === 'employees' && (
-              <EmployeesScreen employees={employees} />
+              <EmployeesScreen
+                employees={employees}
+                stores={stores}
+                currentUser={currentUser}
+                onUpdateEmployees={setEmployees}
+                onSwitchUser={(user) => setCurrentUser(user)}
+              />
             )}
 
             {currentSection === 'alerts' && (
@@ -246,7 +321,16 @@ export default function App() {
             )}
 
             {currentSection === 'settings' && (
-              <SettingsScreen />
+              <SettingsScreen
+                stores={stores}
+                activeStore={activeStore}
+                onSelectStore={handleSelectStore}
+                onUpdateStores={handleUpdateStores}
+                currentUser={currentUser}
+                employees={employees}
+                businessConfig={businessConfig}
+                onUpdateBusinessConfig={handleUpdateBusinessConfig}
+              />
             )}
           </main>
 

@@ -26,6 +26,15 @@ export interface NavigationItem {
   category: 'principal' | 'operaciones' | 'contactos' | 'gestion' | 'sistema';
 }
 
+export interface PosTerminal {
+  id: string;
+  name: string;
+  code: string;
+  type: 'caja_mostrador' | 'caja_rapida' | 'terminal_movil' | 'autoservicio';
+  active: boolean;
+  notes?: string;
+}
+
 export interface Store {
   id: string;
   name: string;
@@ -37,6 +46,7 @@ export interface Store {
   active: boolean;
   totalProducts: number;
   todaySales: number;
+  terminals?: PosTerminal[];
 }
 
 export interface Product {
@@ -131,6 +141,19 @@ export interface Promotion {
   validFrom: string;
   validUntil: string;
   active: boolean;
+  code?: string;
+  description?: string;
+  originalPrice?: number;
+  promoPrice?: number;
+  percentage?: number;
+  minUnits?: number;
+  minAmount?: number;
+  applicableProducts?: string[];
+  paymentMethod?: string;
+  daysOfWeek?: string[];
+  timesUsed?: number;
+  maxUses?: number;
+  highlight?: boolean;
 }
 
 export interface Employee {
@@ -142,6 +165,11 @@ export interface Employee {
   phone: string;
   status: 'Activo' | 'Inactivo';
   lastAccess: string;
+  username?: string;
+  pin?: string;
+  createdAt?: string;
+  avatar?: string;
+  notes?: string;
 }
 
 export interface SystemAlert {
@@ -162,4 +190,41 @@ export interface SocialPromoPost {
   suggestedText: string;
   hashtags: string[];
   bannerColor: string;
+}
+
+export interface BusinessConfig {
+  // Datos del comercio
+  tradeName: string;
+  legalName: string;
+  taxId: string;
+  address: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  phone: string;
+  email: string;
+  website?: string;
+  logoUrl?: string;
+
+  // Preferencias comerciales
+  currencySymbol: string;
+  currencyCode: string;
+  taxRegime: 'responsable_inscripto' | 'monotributo' | 'exento' | 'consumidor_final';
+  defaultVatRate: number;
+  negativeStockPolicy: 'bloquear' | 'advertir' | 'permitir';
+  decimalPlaces: number;
+  priceRounding: 'ninguno' | 'decimal' | 'multiplo_10' | 'multiplo_50';
+  businessHours: string;
+  openingDays: string[];
+  greetingMessage: string;
+
+  // Personalización de comprobantes
+  receiptFormat: '58mm' | '80mm' | 'a4';
+  showLogoOnReceipt: boolean;
+  headerCustomText: string;
+  footerCustomText: string;
+  returnPolicyText: string;
+  showQrCode: boolean;
+  showCashierName: boolean;
+  showCustomerData: boolean;
 }
