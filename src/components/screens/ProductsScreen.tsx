@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Plus,
@@ -39,6 +39,12 @@ export const ProductsScreen: React.FC<ProductsScreenProps> = ({
 }) => {
   // Local state for product list (allows in-session creation and editing without altering global architecture)
   const [productList, setProductList] = useState<Product[]>(initialProducts);
+
+  // Sync with prop when external updates occur
+  useEffect(() => {
+    setProductList(initialProducts);
+  }, [initialProducts]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [selectedStatus, setSelectedStatus] = useState<'todos' | 'disponible' | 'bajo_stock' | 'agotado'>('todos');
@@ -206,11 +212,15 @@ export const ProductsScreen: React.FC<ProductsScreenProps> = ({
           previousVal = `Venta: $${editingProduct.salePrice.toLocaleString('es-AR')} | Costo: $${editingProduct.costPrice.toLocaleString('es-AR')}`;
           newVal = `Venta: $${numSalePrice.toLocaleString('es-AR')} | Costo: $${numCostPrice.toLocaleString('es-AR')}`;
         } else if (trimmedName !== editingProduct.name) {
-          previousVal = `Nombre: ${editingProduct.name}`;
-          newVal = `Nombre: ${trimmedName}`;
+          previousVal = `Nombre: "${editingProduct.name}"`;
+          newVal = `Nombre: "${trimmedName}"`;
+        } else if (numStock !== editingProduct.stock) {
+          previousVal = `Stock: ${editingProduct.stock} ${editingProduct.unit}`;
+          newVal = `Stock: ${numStock} ${formData.unit}`;
         } else {
-          previousVal = changes[0].split(' -> ')[0];
-          newVal = changes[0].split(' -> ')[1] || '';
+          const parts = changes[0].split(' -> ');
+          previousVal = parts[0] || '';
+          newVal = parts[1] || '';
         }
 
         onAuditLog({

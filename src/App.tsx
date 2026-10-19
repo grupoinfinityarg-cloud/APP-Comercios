@@ -164,7 +164,25 @@ export default function App() {
     }
   };
 
-  const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('comercios360_products');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return DEMO_PRODUCTS;
+  });
+
+  const handleUpdateProducts = (updatedProducts: Product[]) => {
+    setProducts(updatedProducts);
+    try {
+      localStorage.setItem('comercios360_products', JSON.stringify(updatedProducts));
+    } catch {
+      // ignore
+    }
+  };
+
   const [sales, setSales] = useState<Sale[]>(DEMO_SALES);
   const [customers, setCustomers] = useState<Customer[]>(DEMO_CUSTOMERS);
   const [suppliers, setSuppliers] = useState<Supplier[]>(DEMO_SUPPLIERS);
@@ -332,7 +350,7 @@ export default function App() {
                 currentUser={currentUser}
                 activeStore={activeStore}
                 onAuditLog={handleRecordAuditEvent}
-                onUpdateProducts={setProducts}
+                onUpdateProducts={handleUpdateProducts}
               />
             )}
 
