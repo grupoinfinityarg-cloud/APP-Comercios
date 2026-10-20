@@ -48,6 +48,8 @@ export interface Store {
   totalProducts: number;
   todaySales: number;
   terminals?: PosTerminal[];
+  businessTypeId?: CommercialRubroId;
+  editionTier?: CommercialEditionTier;
 }
 
 export interface Product {
@@ -228,6 +230,10 @@ export interface BusinessConfig {
   showQrCode: boolean;
   showCashierName: boolean;
   showCustomerData: boolean;
+
+  // Rubro y edición comercial predeterminada
+  businessTypeId?: CommercialRubroId;
+  editionTier?: CommercialEditionTier;
 }
 
 export type AuditLogCategory =
@@ -282,4 +288,77 @@ export interface AuditLogEvent {
   previousValue?: string;
   newValue?: string;
   severity?: 'baja' | 'media' | 'alta' | 'critica';
+}
+
+// ==========================================
+// MÓDULO: RUBROS COMERCIALES Y EDICIONES
+// ==========================================
+
+export type CommercialEditionTier = 'demo' | 'basica' | 'avanzada' | 'full';
+
+export type CommercialRubroId =
+  | 'almacen_kiosco'
+  | 'bar_cafeteria'
+  | 'restaurante'
+  | 'iluminacion_electricidad'
+  | 'peluqueria_barberia'
+  | 'petshop_veterinaria'
+  | 'ferreteria_corralon'
+  | 'indumentaria_calzado'
+  | 'perfumeria_cosmetica'
+  | 'dietetica_natural'
+  | 'panaderia_confiteria'
+  | 'libreria_papeleria'
+  | 'repuestos_vehiculos'
+  | 'celulares_tecnologia'
+  | 'vivero_jardineria'
+  | 'comercio_general';
+
+export interface CommercialRubroQuickAction {
+  id: string;
+  label: string;
+  targetSection: NavigationSectionId;
+  iconName: string;
+  description: string;
+  isPrimary?: boolean;
+}
+
+export interface CommercialRubro {
+  id: CommercialRubroId;
+  name: string;
+  shortName: string;
+  description: string;
+  iconName: string;
+  suggestedCategories: string[];
+  recommendedUnits: string[];
+  suggestedQuickActions: CommercialRubroQuickAction[];
+  recommendedSections: NavigationSectionId[];
+  featuresOverview: string[];
+  sampleProductHint: string;
+}
+
+export interface CommercialEditionLimits {
+  maxStores: number;
+  maxTerminalsPerStore: number;
+  allowsMultiStore: boolean;
+  allowsCurrentAccounts: boolean;
+  allowsPromotions: boolean;
+  allowsConfigurableRoles: boolean;
+  allowsMarketingGenerator: boolean;
+  allowsAdvancedReports: boolean;
+  allowsAuditLogViewer: boolean;
+}
+
+export interface CommercialEdition {
+  id: CommercialEditionTier;
+  name: string;
+  badgeLabel: string;
+  shortDescription: string;
+  fullDescription: string;
+  iconName: string;
+  allowedSections: NavigationSectionId[];
+  limits: CommercialEditionLimits;
+  features: string[];
+  dieteticaCaseNotes: string[];
+  isDemoOrEvaluation: boolean;
 }

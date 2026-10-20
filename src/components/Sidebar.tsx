@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard,
-  Store,
+  Store as StoreIcon,
   Package,
   Boxes,
   ShoppingCart,
@@ -20,20 +20,28 @@ import {
   Search,
   ShieldCheck,
   History,
+  Lock,
 } from 'lucide-react';
 import { NAVIGATION_ITEMS } from '../data/navigation';
-import { NavigationSectionId } from '../types';
+import { NavigationSectionId, Store } from '../types';
+import {
+  isSectionAllowedInEdition,
+  getMinimumEditionForSection,
+  getCommercialEdition,
+  getEditionBadgeStyle,
+} from '../data/commercialEditions';
 
 interface SidebarProps {
   currentSection: NavigationSectionId;
   onSelectSection: (section: NavigationSectionId) => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  activeStore?: Store;
 }
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
-  Store,
+  Store: StoreIcon,
   Package,
   Boxes,
   ShoppingCart,
@@ -57,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectSection,
   mobileOpen,
   onCloseMobile,
+  activeStore,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -128,6 +137,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {filteredItems.map((item) => {
           const Icon = ICON_MAP[item.iconName] || LayoutDashboard;
           const isActive = currentSection === item.id;
+          const isAllowed = isSectionAllowedInEdition(activeStore?.editionTier, item.id);
+          const minEdition = getMinimumEditionForSection(item.id);
+
+          if (!isAllowed) {
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onSelectSection(item.id);
+                  if (mobileOpen) onCloseMobile();
+                }}
+                title={`${item.label} • Requiere Edición ${minEdition.badgeLabel}`}
+                className={`w-full group flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all text-left cursor-pointer min-h-[44px] ${
+                  isActive
+                    ? 'bg-[#29322D] text-white shadow-md border-l-4 border-amber-500'
+                    : 'text-[#A2A9A5]/80 hover:bg-[#222825] hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon
+                    className={`w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 transition-colors ${
+                      isActive ? 'text-amber-400' : 'text-[#737C77] group-hover:text-[#CBD2CE]'
+                    }`}
+                  />
+                  <span className="truncate tracking-tight font-medium text-[#B8C0BB] group-hover:text-white">
+                    {item.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  <Lock className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-800/80 uppercase">
+                    {minEdition.badgeLabel}
+                  </span>
+                </div>
+              </button>
+            );
+          }
 
           return (
             <button
@@ -169,12 +216,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer info badge */}
       <div className="p-3.5 sm:p-4 border-t border-[#2E3531] bg-[#111413] text-xs text-[#CBD2CE]">
-        <div className="flex items-center gap-2 mb-1 text-white font-bold">
-          <ShieldCheck className="w-4 h-4 text-[#C85A32] shrink-0" />
-          <span className="tracking-tight">COMERCIOS 360 Activo</span>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-2 text-white font-bold">
+            <ShieldCheck className="w-4 h-4 text-[#C85A32] shrink-0" />
+            <span className="tracking-tight">COMERCIOS 360</span>
+          </div>
+          {activeStore && (
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border leading-none ${
+                getEditionBadgeStyle(activeStore.editionTier).badgeClass
+              }`}
+            >
+              {getCommercialEdition(activeStore.editionTier).badgeLabel}
+            </span>
+          )}
         </div>
-        <p className="text-[11px] text-[#A2A9A5] leading-relaxed">
-          Diseño comercial optimizado para alta visibilidad y contraste.
+        <p className="text-[11px] text-[#A2A9A5] leading-relaxed truncate">
+          {activeStore ? `Sucursal: ${activeStore.name}` : 'Diseño comercial optimizado.'}
         </p>
       </div>
     </div>

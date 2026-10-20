@@ -26,6 +26,8 @@ export const DEMO_STORES: Store[] = [
     active: true,
     totalProducts: 480,
     todaySales: 184500,
+    businessTypeId: 'almacen_kiosco',
+    editionTier: 'basica',
     terminals: [
       { id: 'term-1-1', name: 'Caja 1 - Mostrador Principal', code: 'POS-01', type: 'caja_mostrador', active: true, notes: 'Terminal táctil con ticketera térmica 80mm' },
       { id: 'term-1-2', name: 'Caja 2 - Sector Rápido', code: 'POS-02', type: 'caja_rapida', active: true, notes: 'Caja rápida para cobros en efectivo y QR' },
@@ -43,6 +45,8 @@ export const DEMO_STORES: Store[] = [
     active: true,
     totalProducts: 360,
     todaySales: 96300,
+    businessTypeId: 'bar_cafeteria',
+    editionTier: 'avanzada',
     terminals: [
       { id: 'term-2-1', name: 'Caja Única - Mostrador', code: 'POS-03', type: 'caja_mostrador', active: true, notes: 'Terminal integrada con lector código de barras' },
       { id: 'term-2-2', name: 'Terminal Móvil 02', code: 'MOB-02', type: 'terminal_movil', active: false, notes: 'Dispositivo de respaldo para horarios pico' },
@@ -59,6 +63,8 @@ export const DEMO_STORES: Store[] = [
     active: true,
     totalProducts: 1250,
     todaySales: 0,
+    businessTypeId: 'comercio_general',
+    editionTier: 'full',
     terminals: [
       { id: 'term-3-1', name: 'Terminal Despacho & Recepción', code: 'LOG-01', type: 'autoservicio', active: true, notes: 'Terminal de control de ingresos y egresos de mercadería' },
     ],
@@ -857,6 +863,8 @@ export const DEFAULT_BUSINESS_CONFIG: BusinessConfig = {
   showQrCode: true,
   showCashierName: true,
   showCustomerData: true,
+  businessTypeId: 'comercio_general',
+  editionTier: 'demo',
 };
 
 export const DEMO_AUDIT_LOGS: AuditLogEvent[] = [

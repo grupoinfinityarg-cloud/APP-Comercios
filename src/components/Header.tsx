@@ -11,6 +11,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { Store, Employee, NavigationSectionId } from '../types';
+import { getCommercialEdition, getEditionBadgeStyle } from '../data/commercialEditions';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
@@ -74,55 +75,77 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <StoreIcon className="w-4 h-4 text-[#C85A32] shrink-0" />
               <div className="text-left hidden sm:block">
-                <span className="block text-[11px] uppercase font-bold tracking-wider text-[#5D6561] dark:text-[#A2A9A5] leading-none">
-                  Comercio activo
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="block text-[11px] uppercase font-bold tracking-wider text-[#5D6561] dark:text-[#A2A9A5] leading-none">
+                    Comercio activo
+                  </span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border leading-none ${getEditionBadgeStyle(activeStore.editionTier).badgeClass}`}>
+                    {getCommercialEdition(activeStore.editionTier).badgeLabel}
+                  </span>
+                </div>
                 <span className="font-bold truncate max-w-[170px] block text-xs sm:text-sm mt-0.5 text-[#111413] dark:text-white">
                   {activeStore.name}
                 </span>
               </div>
-              <span className="font-bold truncate max-w-[130px] sm:hidden block text-xs">
-                {activeStore.name}
-              </span>
+              <div className="sm:hidden flex items-center gap-1">
+                <span className="font-bold truncate max-w-[110px] block text-xs">
+                  {activeStore.name}
+                </span>
+                <span className={`text-[9px] font-bold px-1 py-0.2 rounded border ${getEditionBadgeStyle(activeStore.editionTier).badgeClass}`}>
+                  {getCommercialEdition(activeStore.editionTier).badgeLabel}
+                </span>
+              </div>
               <ChevronDown className="w-4 h-4 text-[#5D6561] dark:text-[#A2A9A5]" />
             </button>
 
             {storeDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-72 bg-white dark:bg-[#1E2320] rounded-2xl shadow-xl border border-[#DCD6CC] dark:border-[#3A433E] py-1.5 z-50 text-xs sm:text-sm">
+              <div className="absolute left-0 mt-2 w-80 bg-white dark:bg-[#1E2320] rounded-2xl shadow-xl border border-[#DCD6CC] dark:border-[#3A433E] py-1.5 z-50 text-xs sm:text-sm">
                 <div className="px-3.5 py-2 border-b border-[#F3EFEA] dark:border-[#2C332F]">
                   <p className="text-[11px] font-bold text-[#5D6561] dark:text-[#A2A9A5] uppercase tracking-wider">
                     Cambiar punto de venta
                   </p>
                 </div>
-                {stores.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      onSelectStore(s);
-                      setStoreDropdownOpen(false);
-                    }}
-                    className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 transition-colors cursor-pointer min-h-[44px] ${
-                      s.id === activeStore.id
-                        ? 'bg-[#FDF7F4] dark:bg-[#2C332F] text-[#C85A32] dark:text-[#FFA07A] font-bold border-l-4 border-[#C85A32]'
-                        : 'hover:bg-[#FAF8F4] dark:hover:bg-[#282F2C] text-[#111413] dark:text-[#E5E9E6]'
-                    }`}
-                  >
-                    <StoreIcon className="w-4 h-4 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-xs sm:text-sm">{s.name}</p>
-                      <p className="text-xs text-[#5D6561] dark:text-[#A2A9A5]">{s.city} • {s.code}</p>
-                    </div>
-                  </button>
-                ))}
+                {stores.map((s) => {
+                  const sEdition = getCommercialEdition(s.editionTier);
+                  const sBadge = getEditionBadgeStyle(s.editionTier);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectStore(s);
+                        setStoreDropdownOpen(false);
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 transition-colors cursor-pointer min-h-[44px] ${
+                        s.id === activeStore.id
+                          ? 'bg-[#FDF7F4] dark:bg-[#2C332F] text-[#C85A32] dark:text-[#FFA07A] font-bold border-l-4 border-[#C85A32]'
+                          : 'hover:bg-[#FAF8F4] dark:hover:bg-[#282F2C] text-[#111413] dark:text-[#E5E9E6]'
+                      }`}
+                    >
+                      <StoreIcon className="w-4 h-4 mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <p className="truncate font-semibold text-xs sm:text-sm">{s.name}</p>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${sBadge.badgeClass}`}>
+                            {sEdition.badgeLabel}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#5D6561] dark:text-[#A2A9A5]">{s.city} • {s.code}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Demo status tag */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FDF7F4] dark:bg-[#282F2C] border border-[#F3D3C4] dark:border-[#3A433E] text-[#B84C26] dark:text-[#FFA07A] text-xs font-bold">
+          {/* Active Edition status tag */}
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FAF8F4] dark:bg-[#222825] border border-[#DCD6CC] dark:border-[#3A433E] text-[#111413] dark:text-[#E5E9E6] text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
-            <span>Versión Previa v1.0</span>
+            <span className="text-[#5D6561] dark:text-[#A2A9A5]">Edición:</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${getEditionBadgeStyle(activeStore.editionTier).badgeClass}`}>
+              {getCommercialEdition(activeStore.editionTier).badgeLabel}
+            </span>
           </div>
         </div>
 

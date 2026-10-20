@@ -55,6 +55,8 @@ import { AlertsScreen } from './components/screens/AlertsScreen';
 import { MarketingScreen } from './components/screens/MarketingScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 import { AuditLogScreen } from './components/screens/AuditLogScreen';
+import { EditionBlockedScreen } from './components/screens/EditionBlockedScreen';
+import { isSectionAllowedInEdition } from './data/commercialEditions';
 
 export default function App() {
   // Theme State (Persisted in localStorage with system preference fallback)
@@ -139,10 +141,16 @@ export default function App() {
       // ignore
     }
     const currentActiveInUpdated = updatedStores.find((s) => s.id === activeStore.id);
+    const targetStore = currentActiveInUpdated || (updatedStores.length > 0 ? updatedStores[0] : activeStore);
     if (currentActiveInUpdated) {
       setActiveStore(currentActiveInUpdated);
     } else if (updatedStores.length > 0) {
       setActiveStore(updatedStores[0]);
+    }
+
+    // Redirección segura si la sección activa no está permitida en la edición de la sucursal activa
+    if (targetStore && !isSectionAllowedInEdition(targetStore.editionTier, currentSection)) {
+      setCurrentSection('dashboard');
     }
   };
 
@@ -152,6 +160,11 @@ export default function App() {
       localStorage.setItem('comercios360_active_store_id', store.id);
     } catch {
       // ignore
+    }
+
+    // Redirección segura si la sección activa no está disponible en la edición de la nueva sucursal
+    if (!isSectionAllowedInEdition(store.editionTier, currentSection)) {
+      setCurrentSection('dashboard');
     }
   };
 
@@ -298,7 +311,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#121614] text-[#111413] dark:text-[#F5F7F6] flex flex-col font-sans antialiased selection:bg-[#F3D3C4] selection:text-[#7C321B] transition-colors">
       <div className="flex flex-1">
-        {/* Sidebar with 16 sections */}
+        {/* Sidebar with 17 sections */}
         <Sidebar
           currentSection={currentSection}
           onSelectSection={(section) => {
@@ -307,6 +320,7 @@ export default function App() {
           }}
           mobileOpen={mobileMenuOpen}
           onCloseMobile={() => setMobileMenuOpen(false)}
+          activeStore={activeStore}
         />
 
         {/* Main Content Area */}
@@ -327,22 +341,35 @@ export default function App() {
 
           {/* Central Workspace */}
           <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-            {currentSection === 'dashboard' && (
-              <DashboardScreen
-                sales={sales}
-                products={products}
-                customers={customers}
-                onNavigate={(sec) => setCurrentSection(sec)}
-              />
-            )}
-
-            {currentSection === 'stores' && (
-              <StoresScreen
-                stores={stores}
+            {!isSectionAllowedInEdition(activeStore?.editionTier, currentSection) ? (
+              <EditionBlockedScreen
+                sectionId={currentSection}
                 activeStore={activeStore}
-                onSelectStore={setActiveStore}
+                onNavigate={(sec) => setCurrentSection(sec)}
+                stores={stores}
+                onSelectStore={handleSelectStore}
               />
-            )}
+            ) : (
+              <>
+                {currentSection === 'dashboard' && (
+                  <DashboardScreen
+                    sales={sales}
+                    products={products}
+                    customers={customers}
+                    activeStore={activeStore}
+                    onNavigate={(sec) => setCurrentSection(sec)}
+                  />
+                )}
+
+                {currentSection === 'stores' && (
+                  <StoresScreen
+                    stores={stores}
+                    activeStore={activeStore}
+                    onSelectStore={handleSelectStore}
+                    onUpdateStores={handleUpdateStores}
+                    businessConfig={businessConfig}
+                  />
+                )}
 
             {currentSection === 'products' && (
               <ProductsScreen
@@ -450,6 +477,8 @@ export default function App() {
                 stores={stores}
                 onNavigate={(sec) => setCurrentSection(sec)}
               />
+            )}
+              </>
             )}
           </main>
 

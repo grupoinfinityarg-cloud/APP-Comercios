@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Building2,
   Store,
@@ -38,8 +38,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
-import { Store as StoreType, Employee, BusinessConfig, PosTerminal } from '../../types';
+import { Store as StoreType, Employee, BusinessConfig, PosTerminal, CommercialRubroId, CommercialEditionTier } from '../../types';
 import { DEFAULT_BUSINESS_CONFIG, DEMO_STORES } from '../../data/demoData';
+import { COMMERCIAL_RUBROS, getCommercialRubro } from '../../data/commercialRubros';
+import { COMMERCIAL_EDITIONS, getCommercialEdition, getEditionBadgeStyle } from '../../data/commercialEditions';
 
 interface SettingsScreenProps {
   stores: StoreType[];
@@ -73,6 +75,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Form state for Business Config
   const [formData, setFormData] = useState<BusinessConfig>(businessConfig);
 
+  useEffect(() => {
+    setFormData(businessConfig);
+  }, [businessConfig]);
+
   // Unsaved changes tracking
   const hasUnsavedConfigChanges = useMemo(() => {
     return JSON.stringify(formData) !== JSON.stringify(businessConfig);
@@ -101,7 +107,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showNewTerminalModal, setShowNewTerminalModal] = useState(false);
 
   // New Store Form State
-  const [newStoreForm, setNewStoreForm] = useState({
+  const [newStoreForm, setNewStoreForm] = useState<{
+    name: string;
+    code: string;
+    address: string;
+    city: string;
+    phone: string;
+    manager: string;
+    active: boolean;
+    businessTypeId: CommercialRubroId;
+    editionTier: CommercialEditionTier;
+  }>({
     name: '',
     code: '',
     address: '',
@@ -109,6 +125,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     phone: '',
     manager: employees[0]?.name || 'Martín Gómez',
     active: true,
+    businessTypeId: (businessConfig.businessTypeId as CommercialRubroId) || 'comercio_general',
+    editionTier: (businessConfig.editionTier as CommercialEditionTier) || 'demo',
   });
   const [newStoreError, setNewStoreError] = useState<string | null>(null);
 
@@ -122,6 +140,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     phone: string;
     manager: string;
     active: boolean;
+    businessTypeId: CommercialRubroId;
+    editionTier: CommercialEditionTier;
   } | null>(null);
 
   // New Terminal Form State
@@ -286,6 +306,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       phone: newStoreForm.phone.trim() || '+54 11 0000-0000',
       manager: newStoreForm.manager,
       active: newStoreForm.active,
+      businessTypeId: newStoreForm.businessTypeId || (businessConfig.businessTypeId as CommercialRubroId) || 'comercio_general',
+      editionTier: newStoreForm.editionTier || (businessConfig.editionTier as CommercialEditionTier) || 'demo',
       totalProducts: 0,
       todaySales: 0,
       terminals: [
@@ -311,6 +333,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       phone: '',
       manager: employees[0]?.name || 'Martín Gómez',
       active: true,
+      businessTypeId: (businessConfig.businessTypeId as CommercialRubroId) || 'comercio_general',
+      editionTier: (businessConfig.editionTier as CommercialEditionTier) || 'demo',
     });
     showToast(`Sucursal "${newStore.name}" creada exitosamente.`);
   };
@@ -341,6 +365,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           phone: editStoreForm.phone.trim(),
           manager: editStoreForm.manager,
           active: editStoreForm.active,
+          businessTypeId: editStoreForm.businessTypeId || 'comercio_general',
+          editionTier: editStoreForm.editionTier || 'demo',
         };
       }
       return s;
@@ -656,6 +682,53 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       La razón social es requerida para comprobantes.
                     </p>
                   )}
+                </div>
+
+                {/* Rubro Comercial Principal */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Rubro Comercial Principal
+                  </label>
+                  <select
+                    disabled={!canEditSettings}
+                    value={formData.businessTypeId || 'comercio_general'}
+                    onChange={(e) => handleConfigChange('businessTypeId', e.target.value as CommercialRubroId)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-[#196344]/30"
+                  >
+                    {COMMERCIAL_RUBROS.map((rubro) => (
+                      <option key={rubro.id} value={rubro.id}>
+                        {rubro.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Especialidad general. Las sucursales nuevas adoptan este rubro por defecto.
+                  </p>
+                </div>
+
+                {/* Edición Comercial Predeterminada */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Edición Comercial Predeterminada
+                  </label>
+                  <select
+                    disabled={!canEditSettings}
+                    value={formData.editionTier || 'demo'}
+                    onChange={(e) => handleConfigChange('editionTier', e.target.value as CommercialEditionTier)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-[#196344]/30"
+                  >
+                    {COMMERCIAL_EDITIONS.map((ed) => (
+                      <option key={ed.id} value={ed.id}>
+                        {ed.badgeLabel} — {ed.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {getCommercialEdition(formData.editionTier || 'demo').shortDescription}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Plan general del negocio. Valor de respaldo si una sucursal no especifica una edición propia.
+                  </p>
                 </div>
               </div>
 
@@ -994,6 +1067,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               const isCurrent = store.id === activeStore.id;
               const terminals = store.terminals || [];
               const activeTerminalsCount = terminals.filter((t) => t.active).length;
+              const rubroData = getCommercialRubro(store.businessTypeId || businessConfig.businessTypeId);
+              const storeEdition = getCommercialEdition(store.editionTier || businessConfig.editionTier);
+              const storeEditionStyle = getEditionBadgeStyle(store.editionTier || businessConfig.editionTier);
 
               return (
                 <div
@@ -1007,7 +1083,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   }`}
                 >
                   <div className="space-y-3">
-                    {/* Card Top: Code, Name, Status Badge */}
+                    {/* Card Top: Code, Name, Status Badge, Rubro Badge */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-mono">
@@ -1020,15 +1096,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         )}
                       </div>
 
-                      <span
-                        className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                          store.active
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                        }`}
-                      >
-                        {store.active ? 'Habilitada' : 'Inactiva'}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          {rubroData.name}
+                        </span>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${storeEditionStyle.badgeClass}`}>
+                          Plan {storeEdition.badgeLabel}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                            store.active
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          {store.active ? 'Habilitada' : 'Inactiva'}
+                        </span>
+                      </div>
                     </div>
 
                     <div>
@@ -1097,6 +1181,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               phone: store.phone,
                               manager: store.manager,
                               active: store.active,
+                              businessTypeId: store.businessTypeId || (businessConfig.businessTypeId as CommercialRubroId) || 'comercio_general',
+                              editionTier: store.editionTier || (businessConfig.editionTier as CommercialEditionTier) || 'demo',
                             })
                           }
                           className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
@@ -1991,6 +2077,58 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </div>
               </div>
 
+              {/* Rubro Comercial de la Sucursal */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Rubro Comercial de la Sucursal *
+                </label>
+                <select
+                  value={newStoreForm.businessTypeId}
+                  onChange={(e) =>
+                    setNewStoreForm({
+                      ...newStoreForm,
+                      businessTypeId: e.target.value as CommercialRubroId,
+                    })
+                  }
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                >
+                  {COMMERCIAL_RUBROS.map((rubro) => (
+                    <option key={rubro.id} value={rubro.id}>
+                      {rubro.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Especialidad de la sucursal (por defecto hereda el rubro principal del negocio).
+                </p>
+              </div>
+
+              {/* Edición Comercial de la Sucursal */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Edición Comercial de la Sucursal *
+                </label>
+                <select
+                  value={newStoreForm.editionTier}
+                  onChange={(e) =>
+                    setNewStoreForm({
+                      ...newStoreForm,
+                      editionTier: e.target.value as CommercialEditionTier,
+                    })
+                  }
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                >
+                  {COMMERCIAL_EDITIONS.map((ed) => (
+                    <option key={ed.id} value={ed.id}>
+                      {ed.badgeLabel} — {ed.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {getCommercialEdition(newStoreForm.editionTier).shortDescription}
+                </p>
+              </div>
+
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
@@ -2130,6 +2268,58 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Rubro Comercial de la Sucursal */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Rubro Comercial de la Sucursal *
+                </label>
+                <select
+                  value={editStoreForm.businessTypeId}
+                  onChange={(e) =>
+                    setEditStoreForm({
+                      ...editStoreForm,
+                      businessTypeId: e.target.value as CommercialRubroId,
+                    })
+                  }
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                >
+                  {COMMERCIAL_RUBROS.map((rubro) => (
+                    <option key={rubro.id} value={rubro.id}>
+                      {rubro.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Especialidad de la sucursal (determina las herramientas y terminología comercial).
+                </p>
+              </div>
+
+              {/* Edición Comercial de la Sucursal */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Edición Comercial de la Sucursal *
+                </label>
+                <select
+                  value={editStoreForm.editionTier}
+                  onChange={(e) =>
+                    setEditStoreForm({
+                      ...editStoreForm,
+                      editionTier: e.target.value as CommercialEditionTier,
+                    })
+                  }
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                >
+                  {COMMERCIAL_EDITIONS.map((ed) => (
+                    <option key={ed.id} value={ed.id}>
+                      {ed.badgeLabel} — {ed.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {getCommercialEdition(editStoreForm.editionTier).shortDescription}
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
