@@ -52,6 +52,18 @@ export interface Store {
   editionTier?: CommercialEditionTier;
 }
 
+export type PetSpecies = 'perro' | 'gato' | 'aves' | 'peces' | 'otra';
+export type PetLifeStage = 'cachorro' | 'adulto' | 'senior' | 'todas';
+export type DietaryType =
+  | 'frutos_secos'
+  | 'semillas'
+  | 'legumbres_cereales'
+  | 'harinas_especiales'
+  | 'especias_hierbas'
+  | 'suplementos'
+  | 'reposteria'
+  | 'general';
+
 export interface Product {
   id: string;
   name: string;
@@ -65,6 +77,22 @@ export interface Product {
   unit: string;
   status: 'disponible' | 'bajo_stock' | 'agotado';
   storeId: string;
+
+  // Nuevos campos opcionales para dietética y alimentos balanceados (Etapa 4.1)
+  brand?: string;
+  subCategory?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+  allowsFractional?: boolean;
+  fractionalMinStep?: number;
+  dietaryType?: DietaryType;
+  isGlutenFree?: boolean;
+  isVegan?: boolean;
+  isOrganic?: boolean;
+  petSpecies?: PetSpecies;
+  petStage?: PetLifeStage;
+  packageWeightKg?: number;
+  isClosedBag?: boolean;
 }
 
 export interface SaleItem {
@@ -173,6 +201,7 @@ export interface Employee {
   createdAt?: string;
   avatar?: string;
   notes?: string;
+  assignedPlan?: CommercialEditionTier;
 }
 
 export interface SystemAlert {

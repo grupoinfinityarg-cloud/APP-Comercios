@@ -1,11 +1,9 @@
 import React from 'react';
 import {
   Menu,
-  Store as StoreIcon,
   Bell,
   Search,
   LogOut,
-  ChevronDown,
   Sparkles,
   Sun,
   Moon,
@@ -28,9 +26,9 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onToggleMobileMenu,
-  stores,
+  stores: _stores,
   activeStore,
-  onSelectStore,
+  onSelectStore: _onSelectStore,
   currentUser,
   onLogout,
   unreadAlertsCount,
@@ -38,23 +36,14 @@ export const Header: React.FC<HeaderProps> = ({
   isDarkMode = false,
   onToggleDarkMode,
 }) => {
-  const [storeDropdownOpen, setStoreDropdownOpen] = React.useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setStoreDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Resolve active commercial plan using the current active store edition tier
+  const currentPlan = getCommercialEdition(activeStore?.editionTier);
+  const currentPlanStyle = getEditionBadgeStyle(activeStore?.editionTier);
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#161A18]/95 backdrop-blur-md border-b border-[#DCD6CC] dark:border-[#2E3531] transition-colors">
       <div className="px-3.5 sm:px-6 py-2.5 flex items-center justify-between gap-3 sm:gap-4">
-        {/* Left: Mobile hamburger + Store Selector */}
+        {/* Left: Mobile hamburger + Commercial Plan Indicator */}
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
@@ -66,86 +55,30 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Store Switcher */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-              className="flex items-center gap-2 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-semibold bg-[#FAF8F4] dark:bg-[#222825] hover:bg-[#F3EFEA] dark:hover:bg-[#2C332F] text-[#111413] dark:text-[#F5F7F6] rounded-xl border border-[#DCD6CC] dark:border-[#3A433E] transition-colors cursor-pointer min-h-[44px]"
-            >
-              <StoreIcon className="w-4 h-4 text-[#C85A32] shrink-0" />
-              <div className="text-left hidden sm:block">
-                <div className="flex items-center gap-1.5">
-                  <span className="block text-[11px] uppercase font-bold tracking-wider text-[#5D6561] dark:text-[#A2A9A5] leading-none">
-                    Comercio activo
-                  </span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border leading-none ${getEditionBadgeStyle(activeStore.editionTier).badgeClass}`}>
-                    {getCommercialEdition(activeStore.editionTier).badgeLabel}
-                  </span>
-                </div>
-                <span className="font-bold truncate max-w-[170px] block text-xs sm:text-sm mt-0.5 text-[#111413] dark:text-white">
-                  {activeStore.name}
-                </span>
-              </div>
-              <div className="sm:hidden flex items-center gap-1">
-                <span className="font-bold truncate max-w-[110px] block text-xs">
-                  {activeStore.name}
-                </span>
-                <span className={`text-[9px] font-bold px-1 py-0.2 rounded border ${getEditionBadgeStyle(activeStore.editionTier).badgeClass}`}>
-                  {getCommercialEdition(activeStore.editionTier).badgeLabel}
-                </span>
-              </div>
-              <ChevronDown className="w-4 h-4 text-[#5D6561] dark:text-[#A2A9A5]" />
-            </button>
+          {/* Commercial Plan Indicator (Informative, non-switchable) */}
+          <div
+            className="flex items-center gap-2 sm:gap-2.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-[#FAF8F4] dark:bg-[#222825] rounded-xl border border-[#DCD6CC] dark:border-[#3A433E] transition-colors select-none min-h-[44px]"
+            title={`Plan comercial activo: ${currentPlan.name} • ${currentPlan.shortDescription}`}
+          >
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#1A1F1C] border border-[#DCD6CC] dark:border-[#3A433E] flex items-center justify-center text-[#C85A32] shadow-2xs shrink-0">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
 
-            {storeDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-80 bg-white dark:bg-[#1E2320] rounded-2xl shadow-xl border border-[#DCD6CC] dark:border-[#3A433E] py-1.5 z-50 text-xs sm:text-sm">
-                <div className="px-3.5 py-2 border-b border-[#F3EFEA] dark:border-[#2C332F]">
-                  <p className="text-[11px] font-bold text-[#5D6561] dark:text-[#A2A9A5] uppercase tracking-wider">
-                    Cambiar punto de venta
-                  </p>
-                </div>
-                {stores.map((s) => {
-                  const sEdition = getCommercialEdition(s.editionTier);
-                  const sBadge = getEditionBadgeStyle(s.editionTier);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        onSelectStore(s);
-                        setStoreDropdownOpen(false);
-                      }}
-                      className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 transition-colors cursor-pointer min-h-[44px] ${
-                        s.id === activeStore.id
-                          ? 'bg-[#FDF7F4] dark:bg-[#2C332F] text-[#C85A32] dark:text-[#FFA07A] font-bold border-l-4 border-[#C85A32]'
-                          : 'hover:bg-[#FAF8F4] dark:hover:bg-[#282F2C] text-[#111413] dark:text-[#E5E9E6]'
-                      }`}
-                    >
-                      <StoreIcon className="w-4 h-4 mt-0.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-1.5">
-                          <p className="truncate font-semibold text-xs sm:text-sm">{s.name}</p>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${sBadge.badgeClass}`}>
-                            {sEdition.badgeLabel}
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#5D6561] dark:text-[#A2A9A5]">{s.city} • {s.code}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+            <div className="text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-wider text-[#5D6561] dark:text-[#A2A9A5] leading-none">
+                  Plan Activo
+                </span>
+                <span
+                  className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full border leading-none ${currentPlanStyle.badgeClass}`}
+                >
+                  {currentPlan.badgeLabel}
+                </span>
               </div>
-            )}
-          </div>
-
-          {/* Active Edition status tag */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FAF8F4] dark:bg-[#222825] border border-[#DCD6CC] dark:border-[#3A433E] text-[#111413] dark:text-[#E5E9E6] text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-[#C85A32]" />
-            <span className="text-[#5D6561] dark:text-[#A2A9A5]">Edición:</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${getEditionBadgeStyle(activeStore.editionTier).badgeClass}`}>
-              {getCommercialEdition(activeStore.editionTier).badgeLabel}
-            </span>
+              <span className="hidden md:block text-[11px] text-[#5D6561] dark:text-[#A2A9A5] truncate max-w-[260px] mt-0.5 font-medium">
+                {currentPlan.name} • {currentPlan.shortDescription}
+              </span>
+            </div>
           </div>
         </div>
 

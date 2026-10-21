@@ -467,7 +467,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     },
   ];
 
-  const targetStoreForTerminals = stores.find((s) => s.id === selectedStoreForTerminals) || stores[0];
+  const targetStoreForTerminals =
+    stores.find((s) => s.id === selectedStoreForTerminals) ||
+    stores.find((s) => s.id === activeStore.id) ||
+    stores[0];
 
   return (
     <div className="space-y-6 pb-20">
@@ -1063,13 +1066,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {/* Stores Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stores.map((store) => {
+            {(stores || []).map((store) => {
               const isCurrent = store.id === activeStore.id;
               const terminals = store.terminals || [];
               const activeTerminalsCount = terminals.filter((t) => t.active).length;
               const rubroData = getCommercialRubro(store.businessTypeId || businessConfig.businessTypeId);
-              const storeEdition = getCommercialEdition(store.editionTier || businessConfig.editionTier);
-              const storeEditionStyle = getEditionBadgeStyle(store.editionTier || businessConfig.editionTier);
+              const storeEdition = getCommercialEdition(store.editionTier);
+              const storeEditionStyle = getEditionBadgeStyle(store.editionTier);
 
               return (
                 <div
@@ -1121,7 +1124,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       </h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 shrink-0 text-[#196344]" />
-                        <span>{store.address}, {store.city}</span>
+                        <span>
+                          {store.address ? `${store.address}${store.city ? `, ${store.city}` : ''}` : store.city || 'Ubicación comercial'}
+                        </span>
                       </p>
                     </div>
 
@@ -1182,7 +1187,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               manager: store.manager,
                               active: store.active,
                               businessTypeId: store.businessTypeId || (businessConfig.businessTypeId as CommercialRubroId) || 'comercio_general',
-                              editionTier: store.editionTier || (businessConfig.editionTier as CommercialEditionTier) || 'demo',
+                              editionTier: store.editionTier || 'demo',
                             })
                           }
                           className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"

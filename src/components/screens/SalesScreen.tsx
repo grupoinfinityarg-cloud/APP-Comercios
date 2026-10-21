@@ -26,6 +26,9 @@ import {
   Check,
   ChevronRight,
   Calculator,
+  Package,
+  Dog,
+  Apple,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
 import { Sale, Product, Customer, SaleItem } from '../../types';
@@ -73,6 +76,12 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({
   const [saleSuccessNotice, setSaleSuccessNotice] = useState<string | null>(null);
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
 
+  // Image error fallback tracking
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const handleImageError = (productId: string) => {
+    setImageErrors((prev) => ({ ...prev, [productId]: true }));
+  };
+
   // Currency Formatter (es-AR)
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -98,10 +107,16 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({
   // Filtered Products for POS Catalog
   const posCategories = ['Todas', ...Array.from(new Set(products.map((p) => p.category)))];
   const filteredPosProducts = products.filter((p) => {
+    // Exclude inactive products if explicitly marked inactive
+    if (p.isActive === false) return false;
+
+    const s = posSearch.toLowerCase().trim();
     const matchesSearch =
-      p.name.toLowerCase().includes(posSearch.toLowerCase()) ||
-      p.sku.toLowerCase().includes(posSearch.toLowerCase()) ||
-      p.barcode.includes(posSearch);
+      !s ||
+      p.name.toLowerCase().includes(s) ||
+      p.sku.toLowerCase().includes(s) ||
+      p.barcode.includes(s) ||
+      (p.brand && p.brand.toLowerCase().includes(s));
     const matchesCategory =
       selectedPosCategory === 'Todas' || p.category === selectedPosCategory;
     return matchesSearch && matchesCategory;
@@ -648,10 +663,11 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({
               </div>
 
               {/* Grilla de Artículos para Seleccionar */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[480px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[520px] overflow-y-auto pr-1">
                 {filteredPosProducts.map((p) => {
                   const isOutOfStock = p.stock === 0;
                   const isLowStock = p.stock > 0 && p.stock <= 5;
+                  const hasPhoto = !!p.imageUrl && !imageErrors[p.id];
 
                   return (
                     <button
@@ -659,31 +675,69 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({
                       type="button"
                       disabled={isOutOfStock}
                       onClick={() => handleAddToCart(p)}
-                      className={`p-3.5 text-left rounded-2xl border transition-all flex flex-col justify-between cursor-pointer min-h-[120px] ${
+                      className={`group p-3 text-left rounded-2xl border transition-all flex flex-col justify-between cursor-pointer ${
                         isOutOfStock
                           ? 'opacity-50 bg-[#F5F2EB] border-[#E2DDD5] cursor-not-allowed'
                           : 'bg-[#FAF8F4] border-[#E8E3DA] hover:border-[#C85A32] hover:bg-white hover:shadow-xs active:scale-[0.98]'
                       }`}
                     >
-                      <div>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-bold text-[#8A908D] uppercase font-mono truncate">
-                            {p.category}
-                          </span>
+                      <div className="w-full">
+                        {/* Miniatura de Imagen Uniforme con fallback elegante */}
+                        <div className="w-full h-24 rounded-xl border border-[#E8E3DA] bg-white overflow-hidden relative mb-2 flex items-center justify-center shrink-0">
+                          {hasPhoto ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              onError={() => handleImageError(p.id)}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-[#8A908D] p-2">
+                              {p.petSpecies ? (
+                                <Dog className="w-7 h-7 text-[#C85A32]/60" />
+                              ) : p.dietaryType || p.isGlutenFree ? (
+                                <Apple className="w-7 h-7 text-[#246A48]/60" />
+                              ) : (
+                                <Package className="w-7 h-7 text-[#8A908D]/70" />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Badges sobre la foto */}
                           {isLowStock && (
-                            <span className="text-[9px] font-bold text-[#9A6216] bg-[#FEF6EC] px-1.5 py-0.2 rounded">
+                            <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-[#9A6216] bg-[#FEF6EC]/95 backdrop-blur-xs px-1.5 py-0.5 rounded-md border border-[#FCE3B8]">
                               Poco stock
                             </span>
                           )}
+                          {isOutOfStock && (
+                            <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-[#B84C26] bg-[#FDF2ED]/95 backdrop-blur-xs px-1.5 py-0.5 rounded-md border border-[#F7D3C4]">
+                              Agotado
+                            </span>
+                          )}
                         </div>
-                        <h4 className="font-bold text-xs text-[#1C201E] mt-1 line-clamp-2 leading-snug">
+
+                        {/* Encabezado: Categoría y Marca */}
+                        <div className="flex items-center justify-between gap-1 text-[10px]">
+                          <span className="font-bold text-[#8A908D] uppercase font-mono truncate">
+                            {p.category}
+                          </span>
+                          {p.brand && (
+                            <span className="font-semibold text-[#C85A32] truncate max-w-[50%] text-right">
+                              {p.brand}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Nombre del Producto */}
+                        <h4 className="font-bold text-xs text-[#1C201E] mt-0.5 line-clamp-2 leading-snug">
                           {p.name}
                         </h4>
                       </div>
 
-                      <div className="mt-3 pt-2 border-t border-[#E8E3DA]/80 flex items-center justify-between">
+                      {/* Pie de tarjeta: Stock y Precio */}
+                      <div className="mt-2.5 pt-2 border-t border-[#E8E3DA]/80 flex items-center justify-between">
                         <span className="text-[10px] text-[#6F7572]">
-                          Stock: <strong>{p.stock}</strong>
+                          Stock: <strong>{p.stock}</strong> <span className="text-[9px] text-[#8A908D]">{p.unit}</span>
                         </span>
                         <span className="text-xs font-black text-[#C85A32]">
                           {formatCurrency(p.salePrice)}
@@ -773,13 +827,30 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({
                         key={item.product.id}
                         className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF8F4] border border-[#E8E3DA] text-xs"
                       >
-                        <div className="min-w-0 flex-1 mr-2">
-                          <p className="font-bold text-[#1C201E] truncate">
-                            {item.product.name}
-                          </p>
-                          <p className="text-[11px] text-[#6F7572]">
-                            {formatCurrency(item.product.salePrice)} c/u
-                          </p>
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                          {/* Miniatura en carrito */}
+                          <div className="w-8 h-8 rounded-lg border border-[#E8E3DA] bg-white shrink-0 overflow-hidden flex items-center justify-center">
+                            {item.product.imageUrl && !imageErrors[item.product.id] ? (
+                              <img
+                                src={item.product.imageUrl}
+                                alt={item.product.name}
+                                onError={() => handleImageError(item.product.id)}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Package className="w-4 h-4 text-[#8A908D]" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-[#1C201E] truncate">
+                              {item.product.name}
+                            </p>
+                            <p className="text-[11px] text-[#6F7572]">
+                              {item.product.brand ? `${item.product.brand} • ` : ''}
+                              {formatCurrency(item.product.salePrice)} c/u
+                            </p>
+                          </div>
                         </div>
 
                         {/* Stepper Cantidad */}

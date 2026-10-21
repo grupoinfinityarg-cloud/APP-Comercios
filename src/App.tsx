@@ -17,6 +17,7 @@ import {
   SystemAlert,
   BusinessConfig,
   AuditLogEvent,
+  CommercialEditionTier,
 } from './types';
 import {
   DEMO_STORES,
@@ -133,6 +134,15 @@ export default function App() {
     return DEFAULT_BUSINESS_CONFIG;
   });
 
+  // Plan comercial efectivo de la sesión: la asignación del perfil autenticado tiene prioridad
+  const effectivePlanTier: CommercialEditionTier = currentUser?.assignedPlan || 'demo';
+
+  // Sucursal activa con el plan efectivo de la sesión aplicado
+  const effectiveActiveStore: StoreType = {
+    ...activeStore,
+    editionTier: effectivePlanTier,
+  };
+
   const handleUpdateStores = (updatedStores: StoreType[]) => {
     setStores(updatedStores);
     try {
@@ -148,8 +158,8 @@ export default function App() {
       setActiveStore(updatedStores[0]);
     }
 
-    // Redirección segura si la sección activa no está permitida en la edición de la sucursal activa
-    if (targetStore && !isSectionAllowedInEdition(targetStore.editionTier, currentSection)) {
+    // Redirección segura si la sección activa no está permitida en el plan efectivo de la sesión
+    if (!isSectionAllowedInEdition(effectivePlanTier, currentSection)) {
       setCurrentSection('dashboard');
     }
   };
@@ -162,8 +172,8 @@ export default function App() {
       // ignore
     }
 
-    // Redirección segura si la sección activa no está disponible en la edición de la nueva sucursal
-    if (!isSectionAllowedInEdition(store.editionTier, currentSection)) {
+    // Redirección segura si la sección activa no está disponible en el plan efectivo de la sesión
+    if (!isSectionAllowedInEdition(effectivePlanTier, currentSection)) {
       setCurrentSection('dashboard');
     }
   };
@@ -261,9 +271,19 @@ export default function App() {
     }
   };
 
-  const handleLogin = (user: Employee) => {
-    setCurrentUser(user);
+  const handleLogin = (user: Employee, assignedPlan?: CommercialEditionTier) => {
+    const effectiveTier = assignedPlan || user.assignedPlan || 'demo';
+    const userWithPlan: Employee = {
+      ...user,
+      assignedPlan: effectiveTier,
+    };
+    setCurrentUser(userWithPlan);
     setIsAuthenticated(true);
+
+    // Si la sección activa no está permitida en el plan asignado, redirección segura al dashboard
+    if (!isSectionAllowedInEdition(effectiveTier, currentSection)) {
+      setCurrentSection('dashboard');
+    }
   };
 
   const handleLogout = () => {
@@ -320,7 +340,7 @@ export default function App() {
           }}
           mobileOpen={mobileMenuOpen}
           onCloseMobile={() => setMobileMenuOpen(false)}
-          activeStore={activeStore}
+          activeStore={effectiveActiveStore}
         />
 
         {/* Main Content Area */}
@@ -329,7 +349,7 @@ export default function App() {
           <Header
             onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
             stores={stores}
-            activeStore={activeStore}
+            activeStore={effectiveActiveStore}
             onSelectStore={handleSelectStore}
             currentUser={currentUser}
             onLogout={handleLogout}
@@ -341,10 +361,10 @@ export default function App() {
 
           {/* Central Workspace */}
           <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-            {!isSectionAllowedInEdition(activeStore?.editionTier, currentSection) ? (
+            {!isSectionAllowedInEdition(effectivePlanTier, currentSection) ? (
               <EditionBlockedScreen
                 sectionId={currentSection}
-                activeStore={activeStore}
+                activeStore={effectiveActiveStore}
                 onNavigate={(sec) => setCurrentSection(sec)}
                 stores={stores}
                 onSelectStore={handleSelectStore}

@@ -17,8 +17,8 @@ import {
 export const COMMERCIAL_EDITIONS: CommercialEdition[] = [
   {
     id: 'demo',
-    name: 'Edición Demostración',
-    badgeLabel: 'DEMO',
+    name: 'Plan Demo',
+    badgeLabel: 'PLAN DEMO',
     shortDescription: 'Evaluación libre de todos los módulos con datos de ejemplo y operaciones simuladas.',
     fullDescription:
       'Diseñada para que el comerciante explore libremente la totalidad de las herramientas de COMERCIOS 360. Permite navegar los 17 módulos con datos demostrativos precargados, sin vencimiento forzado de sesión ni cobros ocultos.',
@@ -70,8 +70,8 @@ export const COMMERCIAL_EDITIONS: CommercialEdition[] = [
   },
   {
     id: 'basica',
-    name: 'Edición Básica (Comercio Esencial)',
-    badgeLabel: 'BÁSICA',
+    name: 'Plan Oro',
+    badgeLabel: 'PLAN ORO',
     shortDescription: 'Monocomercio con ventas en mostrador, catálogo, stock, compras y caja diaria.',
     fullDescription:
       'Solución integral para un punto de venta único (1 sucursal, 1 caja). Cubre todo el circuito operativo esencial de mostrador: registro de artículos, reposición de mercadería, cobro ágil en efectivo y medios electrónicos, compras a proveedores y balance de caja del día.',
@@ -119,8 +119,8 @@ export const COMMERCIAL_EDITIONS: CommercialEdition[] = [
   },
   {
     id: 'avanzada',
-    name: 'Edición Avanzada (Gestión y Fidelización)',
-    badgeLabel: 'AVANZADA',
+    name: 'Plan Platino',
+    badgeLabel: 'PLAN PLATINO',
     shortDescription: 'Todo lo de Básica más cuentas corrientes, promociones, empleados, alertas y marketing.',
     fullDescription:
       'Evolución para comercios en crecimiento que requieren fidelizar clientes mediante cuentas corrientes (fiados), lanzar promociones y combos por fecha, coordinar cajeros con permisos específicos, recibir alertas operativas y difundir ofertas en redes sociales.',
@@ -175,8 +175,8 @@ export const COMMERCIAL_EDITIONS: CommercialEdition[] = [
   },
   {
     id: 'full',
-    name: 'Edición Full (Multi-Sucursal y Depósitos)',
-    badgeLabel: 'FULL',
+    name: 'Plan Diamante',
+    badgeLabel: 'PLAN DIAMANTE',
     shortDescription: 'Todo lo de Avanzada más administración multi-sucursal, depósitos y consolidación.',
     fullDescription:
       'Plataforma completa para empresas comerciales con varias bocas de venta, locales satélites o depósitos logísticos. Habilita la administración simultánea de múltiples sucursales, terminales paralelas, supervisión unificada y trazabilidad completa de operaciones.',
@@ -291,19 +291,19 @@ export function getEditionBadgeStyle(tier?: CommercialEditionTier | string | nul
       return {
         label: edition.badgeLabel,
         badgeClass:
-          'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+          'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700',
       };
     case 'avanzada':
       return {
         label: edition.badgeLabel,
         badgeClass:
-          'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+          'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border-zinc-300 dark:border-zinc-600',
       };
     case 'full':
       return {
         label: edition.badgeLabel,
         badgeClass:
-          'bg-[#FDF7F4] text-[#B84C26] dark:bg-[#282F2C] dark:text-[#FFA07A] border-[#F3D3C4] dark:border-[#3A433E]',
+          'bg-cyan-50 text-cyan-900 dark:bg-cyan-950/60 dark:text-cyan-200 border-cyan-300 dark:border-cyan-800',
       };
   }
 }
