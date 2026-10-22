@@ -357,6 +357,7 @@ export default function App() {
             onNavigate={(sec) => setCurrentSection(sec)}
             isDarkMode={isDarkMode}
             onToggleDarkMode={handleToggleDarkMode}
+            tradeName={businessConfig.tradeName}
           />
 
           {/* Central Workspace */}

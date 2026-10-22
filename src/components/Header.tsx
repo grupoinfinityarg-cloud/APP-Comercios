@@ -22,12 +22,13 @@ interface HeaderProps {
   onNavigate: (section: NavigationSectionId) => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
+  tradeName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onToggleMobileMenu,
   stores: _stores,
-  activeStore,
+  activeStore: _activeStore,
   onSelectStore: _onSelectStore,
   currentUser,
   onLogout,
@@ -35,10 +36,15 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   isDarkMode = false,
   onToggleDarkMode,
+  tradeName,
 }) => {
-  // Resolve active commercial plan using the current active store edition tier
-  const currentPlan = getCommercialEdition(activeStore?.editionTier);
-  const currentPlanStyle = getEditionBadgeStyle(activeStore?.editionTier);
+  // Safe commercial trade name with fallback to 'COMERCIOS 360'
+  const visibleTradeName = tradeName?.trim() || 'COMERCIOS 360';
+
+  // Resolve commercial plan strictly from authenticated session user (fallback: 'demo')
+  const sessionPlanTier = currentUser?.assignedPlan || 'demo';
+  const currentPlan = getCommercialEdition(sessionPlanTier);
+  const currentPlanStyle = getEditionBadgeStyle(sessionPlanTier);
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#161A18]/95 backdrop-blur-md border-b border-[#DCD6CC] dark:border-[#2E3531] transition-colors">
@@ -58,24 +64,27 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Commercial Plan Indicator (Informative, non-switchable) */}
           <div
             className="flex items-center gap-2 sm:gap-2.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-[#FAF8F4] dark:bg-[#222825] rounded-xl border border-[#DCD6CC] dark:border-[#3A433E] transition-colors select-none min-h-[44px]"
-            title={`Plan comercial activo: ${currentPlan.name} • ${currentPlan.shortDescription}`}
+            title={`${visibleTradeName} - ${currentPlan.badgeLabel} • ${currentPlan.shortDescription}`}
           >
             <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#1A1F1C] border border-[#DCD6CC] dark:border-[#3A433E] flex items-center justify-center text-[#C85A32] shadow-2xs shrink-0">
               <Sparkles className="w-3.5 h-3.5" />
             </div>
 
-            <div className="text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-wider text-[#5D6561] dark:text-[#A2A9A5] leading-none">
-                  Plan Activo
+            <div className="text-left flex flex-col justify-center">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-xs sm:text-sm text-[#111413] dark:text-white tracking-tight truncate max-w-[130px] sm:max-w-[200px] md:max-w-[300px]">
+                  {visibleTradeName}
+                </span>
+                <span className="text-[#5D6561] dark:text-[#A2A9A5] font-bold text-xs">
+                  -
                 </span>
                 <span
-                  className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full border leading-none ${currentPlanStyle.badgeClass}`}
+                  className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full border leading-none shrink-0 ${currentPlanStyle.badgeClass}`}
                 >
                   {currentPlan.badgeLabel}
                 </span>
               </div>
-              <span className="hidden md:block text-[11px] text-[#5D6561] dark:text-[#A2A9A5] truncate max-w-[260px] mt-0.5 font-medium">
+              <span className="hidden md:block text-[11px] text-[#5D6561] dark:text-[#A2A9A5] truncate max-w-[340px] font-medium leading-tight mt-0.5">
                 {currentPlan.name} • {currentPlan.shortDescription}
               </span>
             </div>
