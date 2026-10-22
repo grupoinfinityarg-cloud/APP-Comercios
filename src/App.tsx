@@ -18,6 +18,7 @@ import {
   BusinessConfig,
   AuditLogEvent,
   CommercialEditionTier,
+  CommercialContract,
 } from './types';
 import {
   DEMO_STORES,
@@ -33,6 +34,8 @@ import {
   DEMO_AUDIT_LOGS,
 } from './data/demoData';
 import { createAuditEvent, CreateAuditEventParams } from './utils/auditLogger';
+import { validateContractCoherence } from './utils/contractManager';
+import { AlertTriangle } from 'lucide-react';
 
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { Header } from './components/Header';
@@ -134,13 +137,52 @@ export default function App() {
     return DEFAULT_BUSINESS_CONFIG;
   });
 
-  // Plan comercial efectivo de la sesión: la asignación del perfil autenticado tiene prioridad
-  const effectivePlanTier: CommercialEditionTier = currentUser?.assignedPlan || 'demo';
+  // Estado del Contrato Comercial del Comercio (persistido en 'comercios360_contract')
+  const [commercialContract, setCommercialContract] = useState<CommercialContract | null>(() => {
+    try {
+      const raw = localStorage.getItem('comercios360_contract');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const validation = validateContractCoherence(parsed);
+        if (validation.isValid) {
+          return parsed as CommercialContract;
+        } else {
+          console.warn('Contrato comercial en localStorage no superó la validación:', validation.errors);
+        }
+      }
+    } catch (err) {
+      console.warn('Error al leer o analizar comercios360_contract desde localStorage:', err);
+    }
+    // No crear automáticamente contrato si no existe o está corrupto.
+    // Tampoco borrar ni sobrescribir el registro corrupto para permitir diagnóstico.
+    return null;
+  });
+
+  // Plan comercial efectivo de la instalación:
+  // - Si existe un contrato comercial validado, se deriva directamente de contract.planTier ('demo' | 'basica' | 'avanzada' | 'full').
+  // - Si NO existe contrato válido (ausente o corrupto), NO se otorga 'demo'. Se aplica 'basica' (Plan Oro)
+  //   como modo base restringido y seguro para no conceder permisos adicionales ni bloquear la aplicación.
+  const effectivePlanTier: CommercialEditionTier = commercialContract?.planTier || 'basica';
 
   // Sucursal activa con el plan efectivo de la sesión aplicado
   const effectiveActiveStore: StoreType = {
     ...activeStore,
     editionTier: effectivePlanTier,
+  };
+
+  // Usuario efectivo para el encabezado con el plan soberano del contrato comercial del negocio
+  const effectiveHeaderUser: Employee = {
+    ...currentUser,
+    assignedPlan: effectivePlanTier,
+  };
+
+  // Sincronización inmediata al registrar o modificar el contrato en SettingsScreen
+  const handleUpdateCommercialContract = (newContract: CommercialContract) => {
+    setCommercialContract(newContract);
+    // Redirección segura si la sección activa no está permitida en el nuevo plan comercial
+    if (!isSectionAllowedInEdition(newContract.planTier, currentSection)) {
+      setCurrentSection('dashboard');
+    }
   };
 
   const handleUpdateStores = (updatedStores: StoreType[]) => {
@@ -271,17 +313,15 @@ export default function App() {
     }
   };
 
-  const handleLogin = (user: Employee, assignedPlan?: CommercialEditionTier) => {
-    const effectiveTier = assignedPlan || user.assignedPlan || 'demo';
-    const userWithPlan: Employee = {
-      ...user,
-      assignedPlan: effectiveTier,
-    };
-    setCurrentUser(userWithPlan);
+  const handleLogin = (user: Employee, _assignedPlan?: CommercialEditionTier) => {
+    // La edición comercial pertenece soberanamente al contrato del comercio y es independiente del empleado.
+    // Preservamos el usuario autenticado con sus roles operativos sin permitir que un perfil rápido
+    // ni un assignedPlan alteren los permisos comerciales establecidos por el contrato.
+    setCurrentUser(user);
     setIsAuthenticated(true);
 
-    // Si la sección activa no está permitida en el plan asignado, redirección segura al dashboard
-    if (!isSectionAllowedInEdition(effectiveTier, currentSection)) {
+    // Si la sección activa no está permitida en el plan comercial efectivo del contrato, redirección segura
+    if (!isSectionAllowedInEdition(effectivePlanTier, currentSection)) {
       setCurrentSection('dashboard');
     }
   };
@@ -351,7 +391,7 @@ export default function App() {
             stores={stores}
             activeStore={effectiveActiveStore}
             onSelectStore={handleSelectStore}
-            currentUser={currentUser}
+            currentUser={effectiveHeaderUser}
             onLogout={handleLogout}
             unreadAlertsCount={unreadAlertsCount}
             onNavigate={(sec) => setCurrentSection(sec)}
@@ -359,6 +399,25 @@ export default function App() {
             onToggleDarkMode={handleToggleDarkMode}
             tradeName={businessConfig.tradeName}
           />
+
+          {/* Aviso de Modo Base Restringido cuando no hay un contrato comercial validado */}
+          {!commercialContract && (
+            <div className="bg-amber-500/10 dark:bg-amber-950/40 border-b border-amber-500/30 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>
+                  <strong>Atención:</strong> No hay un contrato comercial validado registrado para este comercio. La aplicación opera con permisos base restringidos (Plan Oro).
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentSection('settings')}
+                className="underline font-bold text-amber-950 dark:text-amber-100 hover:text-amber-700 shrink-0 cursor-pointer"
+              >
+                Configurar Contrato &rarr;
+              </button>
+            </div>
+          )}
 
           {/* Central Workspace */}
           <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -486,6 +545,8 @@ export default function App() {
                 employees={employees}
                 businessConfig={businessConfig}
                 onUpdateBusinessConfig={handleUpdateBusinessConfig}
+                commercialContract={commercialContract}
+                onUpdateCommercialContract={handleUpdateCommercialContract}
               />
             )}
 

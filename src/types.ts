@@ -391,3 +391,26 @@ export interface CommercialEdition {
   dieteticaCaseNotes: string[];
   isDemoOrEvaluation: boolean;
 }
+
+// ==========================================
+// MÓDULO: CONTRATOS Y SUSCRIPCIONES COMERCIALES
+// ==========================================
+
+export type ContractOperationType = 'prueba_gratuita' | 'contratacion_comercial';
+
+export type ContractStatus = 'activo' | 'vencido' | 'suspendido';
+
+export interface CommercialContract {
+  id: string;
+  storeId?: string;
+  merchantName?: string;
+  operationType: ContractOperationType;
+  planTier: CommercialEditionTier;
+  startDate: string; // Fecha y hora de inicio en formato ISO 8601
+  durationDays: number; // Duración en días enteros entre 1 y 360
+  expirationDate: string; // Fecha y hora de vencimiento en formato ISO 8601
+  status: ContractStatus;
+  createdAt: string; // Fecha y hora de creación en formato ISO 8601
+  notes?: string;
+}
+

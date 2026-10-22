@@ -36,12 +36,35 @@ import {
   Smartphone,
   Layers,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 import { DemoNotice } from '../DemoNotice';
-import { Store as StoreType, Employee, BusinessConfig, PosTerminal, CommercialRubroId, CommercialEditionTier } from '../../types';
+import {
+  Store as StoreType,
+  Employee,
+  BusinessConfig,
+  PosTerminal,
+  CommercialRubroId,
+  CommercialEditionTier,
+  CommercialContract,
+  ContractOperationType,
+  ContractStatus,
+} from '../../types';
 import { DEFAULT_BUSINESS_CONFIG, DEMO_STORES } from '../../data/demoData';
 import { COMMERCIAL_RUBROS, getCommercialRubro } from '../../data/commercialRubros';
 import { COMMERCIAL_EDITIONS, getCommercialEdition, getEditionBadgeStyle } from '../../data/commercialEditions';
+import {
+  isValidDurationDays,
+  calculateExpirationDate,
+  isContractExpired,
+  getRemainingDays,
+  validateContractCoherence,
+  createCommercialContract,
+  DEFAULT_TRIAL_DURATION_DAYS,
+  DEFAULT_CONTRACT_DURATION_DAYS,
+  MIN_CONTRACT_DURATION_DAYS,
+  MAX_CONTRACT_DURATION_DAYS,
+} from '../../utils/contractManager';
 
 interface SettingsScreenProps {
   stores: StoreType[];
@@ -52,9 +75,11 @@ interface SettingsScreenProps {
   employees: Employee[];
   businessConfig: BusinessConfig;
   onUpdateBusinessConfig: (config: BusinessConfig) => void;
+  commercialContract?: CommercialContract | null;
+  onUpdateCommercialContract?: (contract: CommercialContract) => void;
 }
 
-type SettingsTab = 'business' | 'stores' | 'preferences' | 'receipts';
+type SettingsTab = 'business' | 'stores' | 'preferences' | 'receipts' | 'contract';
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   stores,
@@ -65,6 +90,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   employees,
   businessConfig,
   onUpdateBusinessConfig,
+  commercialContract,
+  onUpdateCommercialContract,
 }) => {
   // Navigation tab
   const [activeTab, setActiveTab] = useState<SettingsTab>('business');
@@ -157,6 +184,131 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     notes: '',
   });
   const [newTerminalError, setNewTerminalError] = useState<string | null>(null);
+
+  // Contract Management State
+  const [activeContract, setActiveContract] = useState<CommercialContract | null>(() => {
+    if (commercialContract !== undefined) {
+      return commercialContract;
+    }
+    try {
+      const raw = localStorage.getItem('comercios360_contract');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const val = validateContractCoherence(parsed);
+        if (val.isValid) {
+          return parsed as CommercialContract;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  });
+
+  // Synchronize activeContract when parent commercialContract prop updates
+  useEffect(() => {
+    if (commercialContract !== undefined) {
+      setActiveContract(commercialContract);
+    }
+  }, [commercialContract]);
+
+  const [contractOpType, setContractOpType] = useState<ContractOperationType>('prueba_gratuita');
+  const [contractPlanTier, setContractPlanTier] = useState<CommercialEditionTier>('demo');
+  const [contractDurationDays, setContractDurationDays] = useState<number>(DEFAULT_TRIAL_DURATION_DAYS);
+  const [contractDurationInput, setContractDurationInput] = useState<string>(String(DEFAULT_TRIAL_DURATION_DAYS));
+  const [contractDurationError, setContractDurationError] = useState<string | null>(null);
+  const [contractNotes, setContractNotes] = useState<string>('');
+
+  const handleSelectOpType = (type: ContractOperationType) => {
+    setContractOpType(type);
+    if (type === 'prueba_gratuita') {
+      setContractPlanTier('demo');
+      setContractDurationDays(DEFAULT_TRIAL_DURATION_DAYS);
+      setContractDurationInput(String(DEFAULT_TRIAL_DURATION_DAYS));
+      setContractDurationError(null);
+    } else {
+      setContractPlanTier((current) => (current === 'demo' ? 'basica' : current));
+      setContractDurationDays(DEFAULT_CONTRACT_DURATION_DAYS);
+      setContractDurationInput(String(DEFAULT_CONTRACT_DURATION_DAYS));
+      setContractDurationError(null);
+    }
+  };
+
+  const handleDurationChange = (valStr: string) => {
+    setContractDurationInput(valStr);
+    const trimmed = valStr.trim();
+    if (!trimmed) {
+      setContractDurationError('Debe ingresar una cantidad de días de vigencia.');
+      return;
+    }
+    const num = Number(trimmed);
+    if (!isValidDurationDays(num)) {
+      if (Number.isNaN(num) || !Number.isInteger(num)) {
+        setContractDurationError('La duración debe ser un número entero de días (sin decimales ni letras).');
+      } else if (num < MIN_CONTRACT_DURATION_DAYS) {
+        setContractDurationError(`La duración mínima permitida es de ${MIN_CONTRACT_DURATION_DAYS} día.`);
+      } else if (num > MAX_CONTRACT_DURATION_DAYS) {
+        setContractDurationError(`La duración máxima permitida es de ${MAX_CONTRACT_DURATION_DAYS} días (1 año comercial).`);
+      } else {
+        setContractDurationError('Duración inválida.');
+      }
+      return;
+    }
+    setContractDurationError(null);
+    setContractDurationDays(num);
+  };
+
+  const estimatedExpirationIso = useMemo(() => {
+    if (contractDurationError || !isValidDurationDays(contractDurationDays)) {
+      return null;
+    }
+    try {
+      return calculateExpirationDate(new Date(), contractDurationDays);
+    } catch {
+      return null;
+    }
+  }, [contractDurationDays, contractDurationError]);
+
+  const handleSaveContract = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canEditSettings) {
+      showToast('Solo administradores y encargados pueden modificar la contratación.');
+      return;
+    }
+
+    const trimmed = contractDurationInput.trim();
+    const num = Number(trimmed);
+    if (!isValidDurationDays(num)) {
+      setContractDurationError(
+        `La duración debe ser un número entero entre ${MIN_CONTRACT_DURATION_DAYS} y ${MAX_CONTRACT_DURATION_DAYS} días.`
+      );
+      return;
+    }
+
+    try {
+      const targetPlan = contractOpType === 'prueba_gratuita' ? 'demo' : contractPlanTier;
+      const newContract = createCommercialContract({
+        merchantName: formData.tradeName || 'COMERCIOS 360',
+        operationType: contractOpType,
+        planTier: targetPlan,
+        durationDays: num,
+        notes: contractNotes.trim() || undefined,
+      });
+
+      localStorage.setItem('comercios360_contract', JSON.stringify(newContract));
+      setActiveContract(newContract);
+      if (onUpdateCommercialContract) {
+        onUpdateCommercialContract(newContract);
+      }
+      showToast(
+        contractOpType === 'prueba_gratuita'
+          ? `Prueba gratuita activada por ${num} días (PLAN DEMO).`
+          : `Contratación comercial guardada por ${num} días (${getCommercialEdition(newContract.planTier).badgeLabel}).`
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al guardar el contrato');
+    }
+  };
 
   // File input ref for logo upload
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -623,6 +775,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         >
           <Receipt className="w-4 h-4" />
           <span>Personalización de Comprobantes</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('contract')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer ${
+            activeTab === 'contract'
+              ? 'bg-white dark:bg-slate-900 text-[#196344] dark:text-emerald-400 shadow-xs border border-slate-200/80 dark:border-slate-700'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Plan y Contratación</span>
+          {activeContract && (
+            <span
+              className={`ml-1 px-1.5 py-0.5 text-[10px] rounded-md font-black uppercase ${
+                isContractExpired(activeContract.expirationDate)
+                  ? 'bg-red-100 text-red-700 dark:bg-red-950/80 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+              }`}
+            >
+              {isContractExpired(activeContract.expirationDate)
+                ? 'Vencido'
+                : getCommercialEdition(activeContract.planTier).badgeLabel}
+            </span>
+          )}
         </button>
       </div>
 
@@ -1870,6 +2048,625 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 5: PLAN Y CONTRATACIÓN COMERCIAL                          */}
+      {/* ============================================================== */}
+      {activeTab === 'contract' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-5 bg-gradient-to-r from-emerald-900/10 via-[#196344]/10 to-teal-900/10 dark:from-emerald-950/40 dark:via-[#196344]/30 dark:to-teal-950/40 rounded-2xl border border-[#196344]/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#196344] dark:text-emerald-400" />
+                <h2 className="text-base font-black text-slate-900 dark:text-white">
+                  Gestión Comercial de Planes y Contrataciones
+                </h2>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-3xl">
+                Administración de la vigencia del servicio para <strong>{formData.tradeName || 'COMERCIOS 360'}</strong>. Permite configurar períodos de <strong>Prueba Gratuita</strong> (Plan Demo con todas las funciones) o registrar una <strong>Contratación Directa</strong> (Plan Oro, Platino o Diamante).
+              </p>
+            </div>
+            {activeContract && (
+              <div className="shrink-0 flex items-center gap-2">
+                <span
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase border shadow-xs ${
+                    isContractExpired(activeContract.expirationDate)
+                      ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800'
+                      : 'bg-emerald-50 text-[#196344] border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                  }`}
+                >
+                  {isContractExpired(activeContract.expirationDate)
+                    ? 'Suscripción Vencida'
+                    : `Suscripción Activa — ${getCommercialEdition(activeContract.planTier).badgeLabel}`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 1: Estado del Contrato Actual del Comercio */}
+          <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-700/60 shadow-xs space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                <ShieldCheck className="w-4 h-4 text-[#196344] dark:text-emerald-400" />
+                <span>Estado de la Contratación Actual del Negocio</span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Almacenado localmente en este navegador
+              </span>
+            </div>
+
+            {activeContract ? (
+              <div className="space-y-4 text-xs">
+                {/* Main Status Bar */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Plan Badge */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Plan Comercial
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black uppercase border shadow-xs ${getEditionBadgeStyle(
+                          activeContract.planTier
+                        )}`}
+                      >
+                        {getCommercialEdition(activeContract.planTier).badgeLabel}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 block">
+                      {getCommercialEdition(activeContract.planTier).name}
+                    </span>
+                  </div>
+
+                  {/* Operation Type */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Modalidad
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-white capitalize text-sm block">
+                      {activeContract.operationType === 'prueba_gratuita'
+                        ? 'Prueba Gratuita'
+                        : 'Contratación Directa'}
+                    </span>
+                    <span className="text-[11px] text-slate-500 block">
+                      {activeContract.operationType === 'prueba_gratuita'
+                        ? 'Acceso de evaluación irrestricto'
+                        : 'Licencia comercial activa'}
+                    </span>
+                  </div>
+
+                  {/* Vigencia / Fechas */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Período de Vigencia
+                    </span>
+                    <div className="font-medium text-slate-800 dark:text-slate-200">
+                      Desde: {new Date(activeContract.startDate).toLocaleDateString('es-AR')}
+                    </div>
+                    <div className="font-bold text-slate-900 dark:text-white">
+                      Hasta: {new Date(activeContract.expirationDate).toLocaleDateString('es-AR')} ({activeContract.durationDays} días)
+                    </div>
+                  </div>
+
+                  {/* Days remaining and Status */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Estado de Servicio
+                    </span>
+                    {isContractExpired(activeContract.expirationDate) ? (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Período Finalizado</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {getRemainingDays(activeContract.expirationDate)} días restantes
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-[11px] text-slate-500 block">
+                      {isContractExpired(activeContract.expirationDate)
+                        ? 'Renueva el contrato para continuar operando'
+                        : 'Servicio en funcionamiento normal'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Additional notes if any */}
+                {activeContract.notes && (
+                  <div className="p-3 bg-slate-100 dark:bg-slate-900/40 rounded-xl text-slate-600 dark:text-slate-400 text-xs flex items-start gap-2">
+                    <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        Notas del contrato:
+                      </span>{' '}
+                      {activeContract.notes}
+                    </div>
+                  </div>
+                )}
+
+                {/* Data Preservation Guarantee Notice (Fundamental Commercial Requirement) */}
+                <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1 text-xs">
+                    <h4 className="font-black text-emerald-900 dark:text-emerald-200">
+                      Garantía Comercial de Preservación de Datos
+                    </h4>
+                    <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                      El vencimiento de un período de prueba o de una contratación comercial <strong>NO elimina ni altera ningún dato</strong> de tu negocio. Todos los productos cargados, precios de lista, niveles de inventario, historial de ventas, clientes registrados, cuentas corrientes y configuraciones fiscales permanecen íntegramente protegidos y conservados en el comercio.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 text-xs">
+                <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="font-bold text-amber-900 dark:text-amber-200">
+                    No hay un contrato formal registrado aún
+                  </h4>
+                  <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
+                    Actualmente este comercio no tiene registrado un contrato en este navegador. Podes iniciar una <strong>Prueba Gratuita</strong> de 7 días (Plan Demo) o registrar una <strong>Contratación Directa</strong> (Plan Oro, Platino o Diamante) utilizando el formulario siguiente.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Formulario de Alta y Configuración Contractual */}
+          <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-700/60 shadow-xs space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                <FileText className="w-4 h-4 text-[#196344] dark:text-emerald-400" />
+                <span>Configurar Nueva Contratación o Período de Prueba</span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Duración editable entre {MIN_CONTRACT_DURATION_DAYS} y {MAX_CONTRACT_DURATION_DAYS} días
+              </span>
+            </div>
+
+            <form onSubmit={handleSaveContract} className="space-y-6 text-xs">
+              {/* Step 1: Modalidad Comercial */}
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-900 dark:text-white text-xs">
+                  1. Modalidad Comercial *
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option A: Prueba Gratuita */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectOpType('prueba_gratuita')}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                      contractOpType === 'prueba_gratuita'
+                        ? 'border-[#196344] bg-[#196344]/5 dark:bg-[#196344]/20 ring-2 ring-[#196344]/30'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-sm">
+                        <Sparkles className="w-4 h-4 text-[#196344]" />
+                        <span>Prueba Gratuita</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#196344]/10 text-[#196344] dark:bg-[#196344]/30 dark:text-emerald-300">
+                        7 días sugeridos
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Para evaluación sin cargo del sistema. Asigna automáticamente el <strong>PLAN DEMO</strong> con acceso a todas las funciones y secciones comerciales.
+                    </p>
+                  </button>
+
+                  {/* Option B: Contratación Directa */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectOpType('contratacion_comercial')}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                      contractOpType === 'contratacion_comercial'
+                        ? 'border-[#196344] bg-[#196344]/5 dark:bg-[#196344]/20 ring-2 ring-[#196344]/30'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-sm">
+                        <CreditCard className="w-4 h-4 text-[#196344]" />
+                        <span>Contratación Directa</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        30 días sugeridos
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Para operación comercial continua. Permite elegir entre los planes comerciales definitivos: <strong>Plan Oro</strong>, <strong>Plan Platino</strong> o <strong>Plan Diamante</strong>.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2: Plan Comercial Asignado */}
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-900 dark:text-white text-xs">
+                  2. Plan Comercial Asignado *
+                </label>
+
+                {contractOpType === 'prueba_gratuita' ? (
+                  /* Locked to PLAN DEMO for Prueba Gratuita */
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-600">
+                          PLAN DEMO
+                        </span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                          (Asignación comercial automática y obligatoria para pruebas)
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Toda prueba gratuita utiliza exclusivamente el Plan Demo, el cual incluye acceso completo a las 17 secciones y funcionalidades del sistema.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase text-slate-400 px-2 py-1 bg-slate-200/60 dark:bg-slate-800 rounded-md shrink-0">
+                      Bloqueado por política
+                    </span>
+                  </div>
+                ) : (
+                  /* Selectable Oro, Platino, Diamante for Contratación Directa */
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Plan Oro (basica) */}
+                    <button
+                      type="button"
+                      onClick={() => setContractPlanTier('basica')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        contractPlanTier === 'basica'
+                          ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 ring-2 ring-amber-500/30'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-black uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+                          PLAN ORO
+                        </span>
+                        {contractPlanTier === 'basica' && (
+                          <Check className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Edición Básica — Ideal para pequeños comercios y profesionales. 1 sucursal, 1 caja física, catálogo y ventas rápidas.
+                      </p>
+                    </button>
+
+                    {/* Plan Platino (avanzada) */}
+                    <button
+                      type="button"
+                      onClick={() => setContractPlanTier('avanzada')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        contractPlanTier === 'avanzada'
+                          ? 'border-cyan-500 bg-cyan-50/50 dark:bg-cyan-950/20 ring-2 ring-cyan-500/30'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-black uppercase bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200 border border-cyan-300 dark:border-cyan-700">
+                          PLAN PLATINO
+                        </span>
+                        {contractPlanTier === 'avanzada' && (
+                          <Check className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Edición Avanzada — Comercios consolidados. Hasta 3 sucursales, multicaja, cuentas corrientes y reportes comerciales.
+                      </p>
+                    </button>
+
+                    {/* Plan Diamante (full) */}
+                    <button
+                      type="button"
+                      onClick={() => setContractPlanTier('full')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        contractPlanTier === 'full'
+                          ? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 ring-2 ring-purple-500/30'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-black uppercase bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200 border border-purple-300 dark:border-purple-700">
+                          PLAN DIAMANTE
+                        </span>
+                        {contractPlanTier === 'full' && (
+                          <Check className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Edición Full — Cadenas y franquicias. Sucursales ilimitadas, multicaja, promociones, marketing y auditoría completa.
+                      </p>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Duración en Días (1 a 360 días) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-slate-900 dark:text-white text-xs">
+                    3. Duración en Días Enteros * (1 a 360 días)
+                  </label>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Valor actual: {contractDurationInput || '0'} días
+                  </span>
+                </div>
+
+                {/* Preset duration buttons */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-slate-500 font-semibold mr-1">Preajustes rápidos:</span>
+                  {contractOpType === 'prueba_gratuita' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('7')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        7 días (Predeterminado)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('14')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        14 días
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('30')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        30 días
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('30')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        30 días (1 mes)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('60')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        60 días (2 meses)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('90')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        90 días (Trimestre)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('180')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        180 días (Semestre)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange('360')}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        360 días (1 año comercial)
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Input row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center pt-1">
+                  <div>
+                    <input
+                      type="number"
+                      required
+                      min={MIN_CONTRACT_DURATION_DAYS}
+                      max={MAX_CONTRACT_DURATION_DAYS}
+                      step={1}
+                      value={contractDurationInput}
+                      onChange={(e) => handleDurationChange(e.target.value)}
+                      placeholder="Ej. 7, 30, 90..."
+                      className={`w-full p-2.5 rounded-xl border text-slate-900 dark:text-white font-mono font-bold text-sm ${
+                        contractDurationError
+                          ? 'border-red-500 bg-red-50 dark:bg-red-950/40 ring-1 ring-red-500'
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800'
+                      }`}
+                    />
+                    {contractDurationError && (
+                      <p className="text-[11px] font-bold text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{contractDurationError}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Dynamic Expiration Date Calculation Preview */}
+                  <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
+                      <Calendar className="w-3.5 h-3.5 text-[#196344]" />
+                      <span>Vencimiento Estimado (Cálculo Dinámico):</span>
+                    </div>
+                    {estimatedExpirationIso ? (
+                      <div className="text-slate-900 dark:text-white font-extrabold text-sm mt-0.5">
+                        {new Date(estimatedExpirationIso).toLocaleDateString('es-AR', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 dark:text-slate-500 italic mt-0.5">
+                        Ingresa una duración válida para calcular la fecha
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 4: Notas o Referencia Comercial */}
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-900 dark:text-white text-xs">
+                  4. Notas / Observaciones Comerciales (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={contractNotes}
+                  onChange={(e) => setContractNotes(e.target.value)}
+                  placeholder="Ej. Promoción de lanzamiento, pago anual por transferencia, etc."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
+                />
+              </div>
+
+              {/* Step 5: Summary Card and Submit Button */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-850 border border-slate-200 dark:border-slate-700/80 space-y-4">
+                <div className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center justify-between">
+                  <span>Resumen de la Operación a Registrar:</span>
+                  <span className="text-[11px] text-slate-500">
+                    Comercio: {formData.tradeName || 'COMERCIOS 360'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Modalidad</span>
+                    <span className="font-bold text-slate-900 dark:text-white capitalize">
+                      {contractOpType === 'prueba_gratuita' ? 'Prueba Gratuita' : 'Contratación Directa'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Plan Resultante</span>
+                    <span className="font-black text-[#196344] dark:text-emerald-400">
+                      {contractOpType === 'prueba_gratuita'
+                        ? 'PLAN DEMO'
+                        : getCommercialEdition(contractPlanTier).badgeLabel}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Duración</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {contractDurationInput || '0'} días
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Vence</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {estimatedExpirationIso
+                        ? new Date(estimatedExpirationIso).toLocaleDateString('es-AR')
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    type="submit"
+                    disabled={!canEditSettings || Boolean(contractDurationError)}
+                    className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer ${
+                      canEditSettings && !contractDurationError
+                        ? 'bg-[#196344] hover:bg-[#145237] text-white shadow-emerald-900/20 ring-2 ring-emerald-500/30'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>
+                      {contractOpType === 'prueba_gratuita'
+                        ? 'Confirmar y Activar Prueba Gratuita'
+                        : 'Confirmar y Guardar Contratación Comercial'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Section 3: Cuadro Comparativo de Planes Comerciales */}
+          <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-700/60 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                <Layers className="w-4 h-4 text-[#196344]" />
+                <span>Comparativa Oficial de Ediciones Comerciales</span>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Límites y funcionalidades de cada nivel
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              {COMMERCIAL_EDITIONS.map((ed) => (
+                <div
+                  key={ed.id}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col justify-between gap-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black uppercase border shadow-xs ${getEditionBadgeStyle(
+                          ed.id
+                        )}`}
+                      >
+                        {ed.badgeLabel}
+                      </span>
+                      {ed.isDemoOrEvaluation && (
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">
+                          Pruebas
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+                      {ed.name}
+                    </h4>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {ed.shortDescription}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                      Capacidad
+                    </span>
+                    <ul className="space-y-1 text-[11px] text-slate-700 dark:text-slate-300">
+                      <li className="flex items-center gap-1.5">
+                        <Check className="w-3 h-3 text-[#196344] shrink-0" />
+                        <span>
+                          {ed.limits.maxStores === -1
+                            ? 'Sucursales Ilimitadas'
+                            : `Hasta ${ed.limits.maxStores} sucursal(es)`}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <Check className="w-3 h-3 text-[#196344] shrink-0" />
+                        <span>
+                          {ed.limits.maxTerminalsPerStore === -1
+                            ? 'Cajas Ilimitadas'
+                            : `${ed.limits.maxTerminalsPerStore} caja(s) por sucursal`}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <Check className="w-3 h-3 text-[#196344] shrink-0" />
+                        <span>
+                          {ed.limits.allowsMultiStore ? 'Modo Red / Multicomercio' : 'Monocomercio'}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
